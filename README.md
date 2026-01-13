@@ -1,5 +1,7 @@
 # Hackers App - CloudBees Unify Learning Project
 
+> Forked by jalts-808 for 3demo project - January 2025
+
 A multi-repo application for learning CloudBees Unify, Kubernetes (k3s), and Feature Management.
 
 ## Project Goal
