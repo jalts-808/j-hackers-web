@@ -19,25 +19,30 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 - Components created in CloudBees Unify
 - Pushed test commits to all 4 repos (fork attribution)
 - Created ROADMAP.md with full project plan
+- **AWS CLI configured** with `claude-mcp` IAM user (AdministratorAccess)
+- **EC2 instance launched** (see AWS Infrastructure section below)
 
 ### In Progress
-- Phase 1: AWS Infrastructure setup
+- Phase 1: AWS Infrastructure setup - k3s installation pending
 
 ## Project Roadmap
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| **1** | AWS Infrastructure - EC2 + k3s setup | Pending |
-| **2** | Jenkins on k3s *(optional)* | Pending |
+| **1** | AWS Infrastructure - EC2 + k3s setup | In Progress |
+| **2** | Jenkins on k3s | Pending |
 | **3** | CloudBees Unify config - secrets, variables | Pending |
 | **4** | Build & Deploy all 3 services to k3s | Pending |
 | **5** | Feature Management setup and integration | Pending |
 | **6** | Release orchestration *(optional)* | Pending |
 
 ### Phase 1: AWS Infrastructure
-- [ ] Launch EC2 instance (t3.medium or t3.large)
+- [x] Configure AWS CLI on local machine
+- [x] Create SSH key pair (`3demo-key`)
+- [x] Create security group with ports 22, 80, 443, 6443
+- [x] Launch EC2 instance
 - [ ] Install k3s: `curl -sfL https://get.k3s.io | sh -`
-- [ ] Configure security groups (22, 80, 443, 6443)
+- [ ] Copy kubeconfig for local access
 - [ ] Set up DNS (own domain or nip.io)
 
 ### Phase 2: Jenkins on k3s (Optional)
@@ -92,6 +97,77 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 │  │  Jenkins (optional) + ephemeral build pods              │ │
 │  └─────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
+```
+
+## AWS Infrastructure Details
+
+### AWS Account
+- **Account ID**: `219826710834`
+- **Region**: `us-west-2`
+- **IAM User**: `claude-mcp` (AdministratorAccess)
+
+### EC2 Instance
+- **Instance ID**: `i-0cb966d64870f9575`
+- **Name**: `3demo-k3s`
+- **Public IP**: `54.214.225.132`
+- **Instance Type**: `t4g.medium` (2 vCPU, 4GB RAM, ARM64)
+- **OS**: Ubuntu 24.04 LTS (ami-012798e88aebdba5c)
+- **Storage**: 30GB gp3
+- **Estimated Cost**: ~$24/month
+
+### Security Group
+- **Group ID**: `sg-089cdc402ae0aedf8`
+- **Name**: `3demo-sg`
+- **Inbound Rules**:
+  - Port 22 (SSH) - 0.0.0.0/0
+  - Port 80 (HTTP) - 0.0.0.0/0
+  - Port 443 (HTTPS) - 0.0.0.0/0
+  - Port 6443 (K8s API) - 0.0.0.0/0
+
+### SSH Key
+- **Key Name**: `3demo-key`
+- **Private Key Location**: `~/.ssh/3demo-key.pem`
+
+### SSH Access
+```bash
+ssh -i ~/.ssh/3demo-key.pem ubuntu@54.214.225.132
+```
+
+### Remaining Steps for k3s Setup
+Once SSH is available, run these commands on the EC2 instance:
+```bash
+# Install k3s
+curl -sfL https://get.k3s.io | sh -
+
+# Verify k3s is running
+sudo kubectl get nodes
+
+# Get kubeconfig (copy this to local machine)
+sudo cat /etc/rancher/k3s/k3s.yaml
+```
+
+Then on local machine, save kubeconfig and update the server IP:
+```bash
+# Save to ~/.kube/config-3demo and replace 127.0.0.1 with 54.214.225.132
+```
+
+### DNS Options
+- **nip.io** (free): `web.54.214.225.132.nip.io`
+- **Own domain**: Point A record to `54.214.225.132`
+
+### Useful AWS Commands
+```bash
+# Check instance status
+aws ec2 describe-instances --instance-ids i-0cb966d64870f9575 --query 'Reservations[0].Instances[0].[State.Name,PublicIpAddress]' --output text
+
+# Start instance
+aws ec2 start-instances --instance-ids i-0cb966d64870f9575
+
+# Stop instance (save money when not using)
+aws ec2 stop-instances --instance-ids i-0cb966d64870f9575
+
+# Terminate instance (delete permanently)
+aws ec2 terminate-instances --instance-ids i-0cb966d64870f9575
 ```
 
 ## GitHub Repos
