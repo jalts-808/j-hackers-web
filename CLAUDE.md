@@ -29,7 +29,7 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| **1** | AWS Infrastructure - EC2 + k3s setup | In Progress |
+| **1** | AWS Infrastructure - EC2 + k3s setup | **Complete** |
 | **2** | Jenkins on k3s | Pending |
 | **3** | CloudBees Unify config - secrets, variables | Pending |
 | **4** | Build & Deploy all 3 services to k3s | Pending |
@@ -37,14 +37,15 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 | **6** | Release orchestration *(optional)* | Pending |
 | **7** | Create `3demo-start.sh` script for dynamic IP handling | Pending |
 
-### Phase 1: AWS Infrastructure
+### Phase 1: AWS Infrastructure ✅
 - [x] Configure AWS CLI on local machine
 - [x] Create SSH key pair (`3demo-key`)
 - [x] Create security group with ports 22, 80, 443, 6443
 - [x] Launch EC2 instance
-- [ ] Install k3s: `curl -sfL https://get.k3s.io | sh -`
-- [ ] Copy kubeconfig for local access
-- [ ] Set up DNS (own domain or nip.io)
+- [x] Install k3s with TLS SAN for public IP
+- [x] Copy kubeconfig to `~/.kube/config-3demo`
+- [x] Create `3demo` namespace
+- [ ] Set up DNS (using nip.io for now)
 
 ### Phase 2: Jenkins on k3s (Optional)
 - [ ] Install Jenkins via Helm
@@ -143,22 +144,21 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 ssh -i ~/.ssh/3demo-key.pem ubuntu@54.214.225.132
 ```
 
-### Remaining Steps for k3s Setup
-Once SSH is available, run these commands on the EC2 instance:
+### k3s Details
+- **Version**: v1.34.3+k3s1
+- **Kubeconfig**: `~/.kube/config-3demo`
+- **Namespace**: `3demo`
+- **Traefik**: Included (ingress controller)
+
+### k3s Installation Command (with TLS SAN)
+**Important**: k3s must be installed with `--tls-san` to include the public IP in the certificate, otherwise remote kubectl won't work.
 ```bash
-# Install k3s
-curl -sfL https://get.k3s.io | sh -
-
-# Verify k3s is running
-sudo kubectl get nodes
-
-# Get kubeconfig (copy this to local machine)
-sudo cat /etc/rancher/k3s/k3s.yaml
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--tls-san <PUBLIC_IP>' sh -
 ```
 
-Then on local machine, save kubeconfig and update the server IP:
+### Using kubectl locally
 ```bash
-# Save to ~/.kube/config-3demo and replace 127.0.0.1 with 54.214.225.132
+KUBECONFIG=~/.kube/config-3demo kubectl get nodes
 ```
 
 ### DNS Options
