@@ -35,6 +35,7 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 | **4** | Build & Deploy all 3 services to k3s | Pending |
 | **5** | Feature Management setup and integration | Pending |
 | **6** | Release orchestration *(optional)* | Pending |
+| **7** | Create `3demo-start.sh` script for dynamic IP handling | Pending |
 
 ### Phase 1: AWS Infrastructure
 - [x] Configure AWS CLI on local machine
@@ -70,6 +71,15 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 ### Phase 6: Release Orchestration (Optional)
 - [ ] Configure j-hackers-app release workflow
 - [ ] Test coordinated multi-service deployment
+
+### Phase 7: Dynamic IP Startup Script
+- [ ] Create `3demo-start.sh` script that:
+  - Starts EC2 instance if stopped
+  - Waits for instance to be running
+  - Gets new public IP
+  - Updates local kubeconfig with new IP
+  - Displays SSH command and app URLs
+- [ ] Create `3demo-stop.sh` to stop instance and save money
 
 ## Repository Structure
 ```
