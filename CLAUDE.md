@@ -30,7 +30,7 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 | Phase | Description | Status |
 |-------|-------------|--------|
 | **1** | AWS Infrastructure - EC2 + k3s setup | **Complete** |
-| **2** | Jenkins on k3s | Pending |
+| **2** | Jenkins on k3s | **Complete** |
 | **3** | CloudBees Unify config - secrets, variables | Pending |
 | **4** | Build & Deploy all 3 services to k3s | Pending |
 | **5** | Feature Management setup and integration | Pending |
@@ -47,9 +47,9 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 - [x] Create `3demo` namespace
 - [ ] Set up DNS (using nip.io for now)
 
-### Phase 2: Jenkins on k3s (Optional)
-- [ ] Install Jenkins via Helm
-- [ ] Configure Kubernetes cloud for pod agents
+### Phase 2: Jenkins on k3s ✅
+- [x] Install Jenkins via Helm
+- [x] Configure Kubernetes cloud for pod agents (auto-configured)
 - [ ] Test j-hackers-api Jenkinsfile build
 
 ### Phase 3: CloudBees Unify Configuration
@@ -160,6 +160,16 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--tls-san <PUBLIC_IP>' sh -
 ```bash
 KUBECONFIG=~/.kube/config-3demo kubectl get nodes
 ```
+
+### Jenkins
+- **URL**: http://jenkins.54.214.225.132.nip.io
+- **Username**: `admin`
+- **Password**: `l62aV4uMbF12vwe6UHIXyp`
+- **Helm Release**: `jenkins` in namespace `3demo`
+- **Values File**: `/Users/jalts/Desktop/3demo/jenkins-values.yaml`
+- **Plugins**: Kubernetes, Pipeline, Git, GitHub, Blue Ocean, Docker Workflow
+
+**Note**: Kubernetes cloud is pre-configured. Jenkins will automatically create pod agents in k3s when jobs run.
 
 ### DNS Options
 - **nip.io** (free): `web.54.214.225.132.nip.io`
