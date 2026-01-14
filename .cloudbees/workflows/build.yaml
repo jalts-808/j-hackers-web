@@ -34,6 +34,9 @@ jobs:
             ${{ steps.RunUnitTest.outputs.CODE_COVERAGE }}
           format: MARKDOWN
   build:
+    outputs:
+      artifact-id: ${{ steps.extract-artifact-id.outputs.artifact-id }}
+      artifact-version: 1.0-${{ cloudbees.version }}
     steps:
       - uses: cloudbees-io/checkout@v1
         name: Get source code
@@ -49,11 +52,20 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: cloudbees-io/kaniko@v1
         name: Build and push container image
+        id: kaniko
         kind: build
         with:
           destination: docker.io/${{ secrets.DOCKERHUB_USER }}/hackers-web:1.0-${{ cloudbees.version }}
           tar-path: container-image.tar
           build-args: BUILDKIT_CONTEXT_KEEP_GIT_DIR=1,BUILDKIT_INLINE_CACHE=1
+      - name: Extract artifact ID
+        id: extract-artifact-id
+        uses: docker://alpine:latest
+        run: |
+          # Extract the first (and only) artifact ID from the JSON
+          ARTIFACT_ID=$(echo '${{ steps.kaniko.outputs.artifact-ids }}' | sed 's/.*:"\([^"]*\)".*/\1/')
+          echo "Extracted artifact ID: $ARTIFACT_ID"
+          echo "$ARTIFACT_ID" >> $CLOUDBEES_OUTPUTS/artifact-id
       - uses: cloudbees-io/asset-chain-utils-preprod/upload-binary@v1
         name: Upload binary from container build
         continue-on-error: true
@@ -74,3 +86,13 @@ jobs:
             Deployed hackers-web:${{ cloudbees.version }}
           format: MARKDOWN
     needs: test
+  deploy:
+    needs: build
+    if: ${{ cloudbees.scm.branch == 'main' }}
+    uses: jalts-808/j-hackers-web/.cloudbees/workflows/deploy.yaml
+    with:
+      artifact-id: ${{ needs.build.outputs.artifact-id }}
+      artifactVersion: ${{ needs.build.outputs.artifact-version }}
+      environment: j-hackers-k3s
+    secrets: inherit
+    vars: inherit
