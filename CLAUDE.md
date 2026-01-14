@@ -4,26 +4,21 @@
 James Altheide (jalts-808 on GitHub) - Growth Product Manager at CloudBees
 
 ## What This Project Is
-Learning project to understand CloudBees Unify by building and deploying a 3-component application. James learns by doing - he needs to create things himself to understand them.
+Learning project to understand CloudBees Unify by building and deploying a 3-component application.
 
 ## End Goal
-Run a Feature Management example against the j-hackers-web service, with everything deployed to a personal k3s instance on AWS.
+Run a Feature Management example against hackers-web, with everything deployed to a personal k3s instance on AWS.
 
-## Current State (Last Updated: Jan 13, 2025)
+## Current State (Last Updated: Jan 13, 2026)
 
-### Completed
-- Forked all 4 repos from cloudbees-days to jalts-808
-- Renamed repos with `j-` prefix (j-hackers-web, j-hackers-api, j-hackers-auth, j-hackers-app)
-- Cloned all repos locally to `/Users/jalts/Desktop/3demo/`
-- Created README.md and CLAUDE.md in j-hackers-web
-- Components created in CloudBees Unify
-- Pushed test commits to all 4 repos (fork attribution)
-- Created ROADMAP.md with full project plan
-- **AWS CLI configured** with `claude-mcp` IAM user (AdministratorAccess)
-- **EC2 instance launched** (see AWS Infrastructure section below)
+### Build Systems - All Working
+| Service | CI/CD | Image | Status |
+|---------|-------|-------|--------|
+| j-hackers-api | Jenkins | `jamesalts/hackers-api` | Builds working |
+| j-hackers-auth | GitHub Actions | `jamesalts/hackers-auth` | Builds working |
+| j-hackers-web | CloudBees Unify | `jamesalts/hackers-web` | Builds working |
 
-### In Progress
-- Phase 1: AWS Infrastructure setup - k3s installation pending
+All three services are building and pushing Docker images to DockerHub.
 
 ## Project Roadmap
 
@@ -31,63 +26,28 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 |-------|-------------|--------|
 | **1** | AWS Infrastructure - EC2 + k3s setup | **Complete** |
 | **2** | Jenkins on k3s | **Complete** |
-| **3** | CloudBees Unify config - secrets, variables | Pending |
-| **4** | Build & Deploy all 3 services to k3s | Pending |
-| **5** | Feature Management setup and integration | Pending |
+| **3** | CloudBees Unify builds | **Complete** |
+| **4** | Deploy all 3 services to k3s | **Next** |
+| **5** | Feature Management setup | Pending |
 | **6** | Release orchestration *(optional)* | Pending |
-| **7** | Create `3demo-start.sh` script for dynamic IP handling | Pending |
 
-### Phase 1: AWS Infrastructure ✅
-- [x] Configure AWS CLI on local machine
-- [x] Create SSH key pair (`3demo-key`)
-- [x] Create security group with ports 22, 80, 443, 6443
-- [x] Launch EC2 instance
-- [x] Install k3s with TLS SAN for public IP
-- [x] Copy kubeconfig to `~/.kube/config-3demo`
-- [x] Create `3demo` namespace
-- [ ] Set up DNS (using nip.io for now)
-
-### Phase 2: Jenkins on k3s ✅
-- [x] Install Jenkins via Helm
-- [x] Configure Kubernetes cloud for pod agents (auto-configured)
-- [ ] Test j-hackers-api Jenkinsfile build
-
-### Phase 3: CloudBees Unify Configuration
-- [ ] Configure secrets: `DOCKERHUB_USER`, `DOCKERHUB_TOKEN`, `PAT`, `kubeconfig`
-- [ ] Configure variables: `namespace`
-- [ ] Create k8s namespace: `kubectl create namespace 3demo`
-
-### Phase 4: Build & Deploy
-- [ ] Trigger builds for all 3 services
-- [ ] Deploy to k3s via Helm
+### Phase 4: Deploy to k3s (Next)
+- [ ] Deploy hackers-web, hackers-api, hackers-auth to k3s
 - [ ] Configure Ingress routing
 - [ ] Verify application works end-to-end
 
 ### Phase 5: Feature Management
 - [ ] Create FM application in Unify
 - [ ] Create feature flags
-- [ ] Integrate SDK into j-hackers-web
+- [ ] Integrate SDK into hackers-web
 - [ ] Test flag toggling
-
-### Phase 6: Release Orchestration (Optional)
-- [ ] Configure j-hackers-app release workflow
-- [ ] Test coordinated multi-service deployment
-
-### Phase 7: Dynamic IP Startup Script
-- [ ] Create `3demo-start.sh` script that:
-  - Starts EC2 instance if stopped
-  - Waits for instance to be running
-  - Gets new public IP
-  - Updates local kubeconfig with new IP
-  - Displays SSH command and app URLs
-- [ ] Create `3demo-stop.sh` to stop instance and save money
 
 ## Repository Structure
 ```
 3demo/
-├── j-hackers-web/   # Vue.js frontend - THIS IS THE MAIN REPO
-├── j-hackers-api/   # Go backend API (has Jenkinsfile)
-├── j-hackers-auth/  # Go auth service
+├── j-hackers-web/   # Vue.js frontend (CloudBees Unify)
+├── j-hackers-api/   # Go backend API (Jenkins)
+├── j-hackers-auth/  # Go auth service (GitHub Actions)
 └── j-hackers-app/   # Release orchestration workflows
 ```
 
@@ -103,91 +63,44 @@ Run a Feature Management example against the j-hackers-web service, with everyth
 │  │ hackers-web │    │ hackers-api │    │ hackers-auth│       │
 │  │   (Vue.js)  │───▶│    (Go)     │    │    (Go)     │       │
 │  └─────────────┘    └─────────────┘    └─────────────┘       │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │  Jenkins (optional) + ephemeral build pods              │ │
-│  └─────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## AWS Infrastructure Details
-
-### AWS Account
-- **Account ID**: `219826710834`
-- **Region**: `us-west-2`
-- **IAM User**: `claude-mcp` (AdministratorAccess)
+## AWS Infrastructure
 
 ### EC2 Instance
 - **Instance ID**: `i-0cb966d64870f9575`
 - **Name**: `3demo-k3s`
-- **Public IP**: `54.214.225.132`
-- **Instance Type**: `t4g.medium` (2 vCPU, 4GB RAM, ARM64)
-- **OS**: Ubuntu 24.04 LTS (ami-012798e88aebdba5c)
-- **Storage**: 30GB gp3
-- **Estimated Cost**: ~$24/month
-
-### Security Group
-- **Group ID**: `sg-089cdc402ae0aedf8`
-- **Name**: `3demo-sg`
-- **Inbound Rules**:
-  - Port 22 (SSH) - 0.0.0.0/0
-  - Port 80 (HTTP) - 0.0.0.0/0
-  - Port 443 (HTTPS) - 0.0.0.0/0
-  - Port 6443 (K8s API) - 0.0.0.0/0
-
-### SSH Key
-- **Key Name**: `3demo-key`
-- **Private Key Location**: `~/.ssh/3demo-key.pem`
+- **Public IP**: `54.214.225.132` (changes when stopped/started)
+- **Instance Type**: `t4g.medium` (ARM64)
+- **Region**: `us-west-2`
 
 ### SSH Access
 ```bash
 ssh -i ~/.ssh/3demo-key.pem ubuntu@54.214.225.132
 ```
 
-### k3s Details
-- **Version**: v1.34.3+k3s1
+### k3s
 - **Kubeconfig**: `~/.kube/config-3demo`
 - **Namespace**: `3demo`
-- **Traefik**: Included (ingress controller)
 
-### k3s Installation Command (with TLS SAN)
-**Important**: k3s must be installed with `--tls-san` to include the public IP in the certificate, otherwise remote kubectl won't work.
-```bash
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--tls-san <PUBLIC_IP>' sh -
-```
-
-### Using kubectl locally
 ```bash
 KUBECONFIG=~/.kube/config-3demo kubectl get nodes
 ```
 
-### Jenkins
+### Jenkins on k3s
 - **URL**: http://jenkins.54.214.225.132.nip.io
 - **Username**: `admin`
-- **Password**: `l62aV4uMbF12vwe6UHIXyp`
-- **Helm Release**: `jenkins` in namespace `3demo`
-- **Values File**: `/Users/jalts/Desktop/3demo/jenkins-values.yaml`
-- **Plugins**: Kubernetes, Pipeline, Git, GitHub, Blue Ocean, Docker Workflow
+- **Password**: (stored in k3s secret)
 
-**Note**: Kubernetes cloud is pre-configured. Jenkins will automatically create pod agents in k3s when jobs run.
-
-### DNS Options
-- **nip.io** (free): `web.54.214.225.132.nip.io`
-- **Own domain**: Point A record to `54.214.225.132`
-
-### Useful AWS Commands
+### AWS Commands
 ```bash
 # Check instance status
 aws ec2 describe-instances --instance-ids i-0cb966d64870f9575 --query 'Reservations[0].Instances[0].[State.Name,PublicIpAddress]' --output text
 
-# Start instance
+# Start/Stop instance
 aws ec2 start-instances --instance-ids i-0cb966d64870f9575
-
-# Stop instance (save money when not using)
 aws ec2 stop-instances --instance-ids i-0cb966d64870f9575
-
-# Terminate instance (delete permanently)
-aws ec2 terminate-instances --instance-ids i-0cb966d64870f9575
 ```
 
 ## GitHub Repos
@@ -196,39 +109,20 @@ aws ec2 terminate-instances --instance-ids i-0cb966d64870f9575
 - https://github.com/jalts-808/j-hackers-auth
 - https://github.com/jalts-808/j-hackers-app
 
-## CloudBees Unify URLs
-- Components: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/components
+## CloudBees Unify
+- **Organization**: j-hackers
+- **Org ID**: `eb3ae95d-a459-4f0a-ac58-57d752e4a373`
+- **Components URL**: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/components
 
-## Key Decisions Made
-- **Deployment**: k3s on single EC2 (~$8-30/month depending on size)
-- **Feature Management**: Target j-hackers-web for FM example
-- **Repo naming**: j-* prefix to distinguish from cloudbees-days originals
-- **Build system**: CloudBees Unify workflows (Jenkins optional for learning)
-
-## Workflow Triggers
-| Repo | Trigger | Notes |
-|------|---------|-------|
-| j-hackers-web | `on: push` + `workflow_dispatch` | Auto-builds on push |
-| j-hackers-api | `workflow_dispatch` only | Manual trigger |
-| j-hackers-auth | `workflow_dispatch` only | Manual trigger |
-| j-hackers-app | `workflow_dispatch` only | Manual trigger |
-
-## CloudBees Unify Concepts
-1. **Component** = Created via UI by connecting a repo
-2. **Application** = Groups components together
-3. **Release** = UI-created entity with workflow + manifest (artifact versions)
-4. **Workflow** = YAML file in `.cloudbees/workflows/`, Composer is visual representation
-5. **Manifest** = Found in Release Definition page, lists artifact versions grouped together
+### Component IDs
+| Component | ID |
+|-----------|-----|
+| j-hackers-web | `25798b54-86df-4e9d-a89c-75fe3faebe25` |
+| j-hackers-api | `0c2fe8b7-cc02-48da-a571-b042ad85cbbb` |
+| j-hackers-auth | `9a1504a9-ccde-48df-bad0-0a21e27161a1` |
+| j-hackers-app | `f5cceab1-2bd2-4048-88a4-08ff753688a0` |
 
 ## Important Notes
 - Do NOT do anything unless James explicitly asks
 - James is learning - explain concepts clearly
 - James prefers small, iterative commits
-- The original repos are from `cloudbees-days` org (demo team)
-- Fork relationship is safe - changes won't leak upstream
-
-## Upstream Repos (for reference)
-- https://github.com/cloudbees-days/hackers-web
-- https://github.com/cloudbees-days/hackers-api
-- https://github.com/cloudbees-days/hackers-auth
-- https://github.com/cloudbees-days/hackers-app
