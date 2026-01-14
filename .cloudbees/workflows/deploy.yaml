@@ -59,8 +59,8 @@ jobs:
               apiUrl: http://hackers-api.54.189.62.135.nip.io/api
               authUrl: http://hackers-auth.54.189.62.135.nip.io
       - name: Register deployed artifact
+        if: ${{ inputs.artifact-id != 'test-deploy' && inputs.artifact-id != 'manual' && inputs.artifact-id != '' }}
         uses: cloudbees-io/register-deployed-artifact@v2
-        continue-on-error: true
         with:
           artifact-id: ${{ inputs.artifact-id }}
           target-environment: ${{ inputs.environment }}
