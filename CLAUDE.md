@@ -11,7 +11,7 @@ Learning project to understand CloudBees Unify by building and deploying a 3-com
 ## End Goal
 Run a Feature Management example against hackers-web, with everything deployed to a personal k3s instance on AWS.
 
-## Current State (Last Updated: Jan 13, 2026)
+## Current State (Last Updated: Jan 14, 2026)
 
 ### Build Systems - All Working
 | Service | CI/CD | Image | Status |
@@ -29,14 +29,44 @@ All three services are building and pushing Docker images to DockerHub.
 | **1** | AWS Infrastructure - EC2 + k3s setup | **Complete** |
 | **2** | Jenkins on k3s | **Complete** |
 | **3** | CloudBees Unify builds | **Complete** |
-| **4** | Deploy all 3 services to k3s | **Next** |
+| **4** | Deploy all 3 services to k3s | **IN PROGRESS** |
 | **5** | Feature Management setup | Pending |
 | **6** | Release orchestration *(optional)* | Pending |
 
-### Phase 4: Deploy to k3s (Next)
-- [ ] Deploy hackers-web, hackers-api, hackers-auth to k3s
-- [ ] Configure Ingress routing
-- [ ] Verify application works end-to-end
+### Phase 4: Deploy to k3s (IN PROGRESS)
+
+**COMPLETED:**
+- [x] Created `j-hackers-k3s` environment in Unify (Configurations → Environments)
+- [x] Added secrets: `kubeconfig`, `DOCKERHUB_USER` (jamesalts)
+- [x] Added variable: `namespace` (3demo)
+- [x] Updated all deploy.yaml workflows (web, api, auth) to use:
+  - Repos: `jalts-808/j-hackers-*` instead of `cloudbees-days/hackers-*`
+  - Hostnames: `*.54.214.225.132.nip.io` instead of `*.preview.cb-demos.io`
+  - Ingress: `traefik` instead of `nginx`
+- [x] Updated `deployer.yaml` in j-hackers-app to reference correct repos/images
+- [x] Committed and pushed all changes to all 4 repos
+
+**BLOCKED - FIX NEEDED:**
+- [ ] First deploy of j-hackers-web FAILED with kubeconfig error:
+  ```
+  error loading config file: yaml: invalid leading UTF-8 octet
+  ```
+  **Fix:** Re-enter kubeconfig in environment settings (copy/paste corrupted it)
+  - Go to: Configurations → Environments → search "j-hackers-k3s" → Edit
+  - Clear and re-paste kubeconfig from `~/.kube/config-3demo`
+
+**REMAINING:**
+- [ ] Fix kubeconfig and retry j-hackers-web deploy
+- [ ] Deploy j-hackers-api and j-hackers-auth
+- [ ] Verify all 3 services running: `KUBECONFIG=~/.kube/config-3demo kubectl get pods -n 3demo`
+- [ ] Test endpoints:
+  - http://hackers-web.54.214.225.132.nip.io
+  - http://hackers-api.54.214.225.132.nip.io
+  - http://hackers-auth.54.214.225.132.nip.io
+
+### How to Trigger Deploy (Manual)
+1. Go to component → Workflows tab → click "deploy" → Run
+2. Fill in: `artifact-id: test-deploy`, `artifactVersion: latest`, `environment: j-hackers-k3s`
 
 ### Phase 5: Feature Management
 - [ ] Create FM application in Unify
