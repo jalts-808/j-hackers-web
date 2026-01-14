@@ -122,6 +122,40 @@ aws ec2 stop-instances --instance-ids i-0cb966d64870f9575
 | j-hackers-auth | `9a1504a9-ccde-48df-bad0-0a21e27161a1` |
 | j-hackers-app | `f5cceab1-2bd2-4048-88a4-08ff753688a0` |
 
+## Phase 6 Notes: Release Orchestration (j-hackers-app)
+
+The `j-hackers-app` repo is a **Release Orchestration Component** - no application code, only CloudBees Unify workflows that coordinate deployments across all three services.
+
+### Key Workflows
+| Workflow | Purpose |
+|----------|---------|
+| `deployer.yaml` | Core dispatcher - calls each component's deploy.yaml based on manifest |
+| `release.yaml` | Simple BAU release: pre-prod → approval → prod |
+| `full-release.yaml` | Enterprise 4-stage pipeline (QA → Staging → Prod) |
+| `snow.yaml` | Same as full-release with ServiceNow integration |
+
+### How It Works
+Uses a **manifest JSON** to specify which components/versions to deploy:
+```json
+{
+  "hackers-web": { "deploy": true, "version": "1.0-0.0.69" },
+  "hackers-api": { "deploy": true, "version": "..." },
+  "hackers-auth": { "deploy": false }
+}
+```
+
+### Full Release Pipeline Stages
+1. **Release Readiness** - Jira issue, quality checks, approval gate
+2. **QA** - Deploy, enable feature flags, run tests, exit criteria
+3. **Staging** - Release manager approval, E2E tests, risk assessment, ServiceNow CR
+4. **Production** - Deploy, smoke tests, progressive flag rollout (10% → 50% → 100%)
+
+### To Customize for This Project
+The workflows reference CloudBees demo environment. To use:
+- Change `cloudbees-days/hackers-*` → `jalts-808/j-hackers-*`
+- Change `ldonleycb/*` Docker images → `jamesalts/*`
+- Update environment names to match k3s setup
+
 ## Important Notes
 - Do NOT do anything unless James explicitly asks
 - James is learning - explain concepts clearly
