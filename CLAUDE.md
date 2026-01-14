@@ -13,6 +13,36 @@ Run a Feature Management example against hackers-web, with everything deployed t
 
 ## Current State (Last Updated: Jan 14, 2026)
 
+### ACTIVE WORK: Jenkins → Unify Integration
+
+**What we did:**
+1. ✅ Created Jenkins controller integration in Unify named `3demo-k3s-jenkins`
+2. ✅ Installed `CloudBees Installation` plugin on Jenkins (NOTE: search for "CloudBees Installation" NOT "CloudBees Installation Plugin" - Unify docs are slightly wrong)
+3. ✅ Installed `CloudBees Platform Insights Plugin` on Jenkins
+4. ✅ Configured plugin with auth code in Jenkins → Manage Jenkins → System → CloudBees Platform Insights
+5. ✅ Enabled "Collect historical build data" option
+6. ✅ Controller now appears in Unify → Jenkins Management
+
+**What we were testing:**
+- Made a test commit to j-hackers-api (commit `149eb9e`) to trigger a Jenkins build
+- Goal: Verify build data flows from Jenkins into Unify's Runs view
+
+**PROBLEM - Jenkins has no job configured:**
+When we checked Jenkins dashboard, it showed "Welcome to Jenkins!" with NO JOBS. We need to create a Jenkins job that:
+1. Points to `https://github.com/jalts-808/j-hackers-api.git`
+2. Uses the existing `Jenkinsfile` in that repo
+3. Has a webhook or polling to trigger on commits
+
+**Next steps:**
+1. Create a Jenkins Pipeline job for j-hackers-api
+2. Configure GitHub webhook (or polling) to trigger builds
+3. Push another commit to test
+4. Verify build appears in Unify → Runs
+
+**Unify URLs:**
+- Jenkins Management: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/jenkins-management/jenkins-controllers
+- Runs: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/runs
+
 ### Build Systems - All Working
 | Service | CI/CD | Image | Status |
 |---------|-------|-------|--------|
