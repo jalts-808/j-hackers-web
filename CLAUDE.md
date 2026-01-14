@@ -47,20 +47,23 @@ All three services are building and pushing Docker images to DockerHub.
 - [x] Committed and pushed all changes to all 4 repos
 - [x] Fixed kubeconfig encoding (must be BASE64 - `cloudbees-days/setup-kubeconfig` decodes it)
 - [x] Replaced ARM64 instance with x86_64 (Docker images built for x86_64)
+- [x] **j-hackers-web deployed with auto-deploy and artifact tracking** (see below)
 
 **REMAINING:**
-- [ ] Update kubeconfig secret in Unify with new base64-encoded value
-- [ ] Deploy j-hackers-web with correct version (e.g., `1.0-0.0.18`, NOT `latest`)
-- [ ] Deploy j-hackers-api and j-hackers-auth
+- [ ] Deploy j-hackers-api and j-hackers-auth (manual deploy with `artifact-id: manual`)
 - [ ] Verify all 3 services running: `KUBECONFIG=~/.kube/config-3demo kubectl get pods -n 3demo`
 - [ ] Test endpoints:
-  - http://hackers-web.54.189.62.135.nip.io
+  - http://hackers-web.54.189.62.135.nip.io ✅ (deployed)
   - http://hackers-api.54.189.62.135.nip.io
   - http://hackers-auth.54.189.62.135.nip.io
 
-### How to Trigger Deploy (Manual)
+### How to Trigger Deploy (Manual - for api/auth)
 1. Go to component → Workflows tab → click "deploy" → Run
-2. Fill in: `artifact-id: test-deploy`, `artifactVersion: 1.0-0.0.18`, `environment: j-hackers-k3s`
+2. Fill in: `artifact-id: manual`, `artifactVersion: <version>`, `environment: j-hackers-k3s`
+   - j-hackers-api: version `3.0-3`
+   - j-hackers-auth: version `2.0-4`
+
+Note: Using `artifact-id: manual` skips artifact registration (step is conditional). This is fine for manual deploys but means no artifact tracking in Unify.
 
 ### How to Update Kubeconfig in Unify
 The kubeconfig MUST be BASE64 encoded (the `cloudbees-days/setup-kubeconfig` action decodes it).
@@ -68,6 +71,118 @@ The kubeconfig MUST be BASE64 encoded (the `cloudbees-days/setup-kubeconfig` act
 cat ~/.kube/config-3demo | base64 | pbcopy
 ```
 Then paste into: Configurations → Environments → j-hackers-k3s → Edit → kubeconfig secret
+
+---
+
+## Artifact Registration & Build→Deploy Flow (IMPORTANT)
+
+### Why Artifact Tracking Matters
+For **Release Orchestration** and **Feature Management** to work properly, CloudBees Unify needs to track:
+1. Which artifact (by UUID) was built
+2. Which environment it was deployed to
+3. When and by whom
+
+Without proper artifact tracking, you can't use:
+- Environment Inventory (see what's deployed where)
+- Release pipelines with artifact promotion
+- Deployment history and audit trails
+
+### How Artifact Registration Works
+
+The `cloudbees-io/register-deployed-artifact@v2` action requires a **valid UUID** for the `artifact-id` parameter - NOT a placeholder like "test-deploy" or "manual".
+
+**Where does the UUID come from?**
+The `cloudbees-io/kaniko@v1` action (used in build) registers the artifact and outputs its UUID.
+
+### The Problem We Solved
+
+**Kaniko outputs `artifact-ids` as JSON:**
+```json
+{"docker.io/jamesalts/hackers-web:1.0-0.0.31": "45d69219-332b-4a50-930f-cca5f8caa59d"}
+```
+
+The deploy workflow needs just the UUID: `45d69219-332b-4a50-930f-cca5f8caa59d`
+
+### The Solution: Auto-Deploy with Artifact ID Extraction
+
+We modified `j-hackers-web/build.yaml` to:
+
+1. **Add `id: kaniko` to the Kaniko step** (to access outputs)
+2. **Add an extraction step** that parses the UUID from the JSON:
+```yaml
+- name: Extract artifact ID
+  id: extract-artifact-id
+  uses: docker://alpine:latest
+  run: |
+    ARTIFACT_IDS='${{ steps.kaniko.outputs.artifact-ids }}'
+    # Extract UUID using regex pattern
+    ARTIFACT_ID=$(echo "$ARTIFACT_IDS" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+    echo -n "$ARTIFACT_ID" >> $CLOUDBEES_OUTPUTS/artifact-id
+```
+
+3. **Add job outputs:**
+```yaml
+build:
+  outputs:
+    artifact-id: ${{ steps.extract-artifact-id.outputs.artifact-id }}
+    artifact-version: 1.0-${{ cloudbees.version }}
+```
+
+4. **Add a deploy job that runs after build:**
+```yaml
+deploy:
+  needs: build
+  if: ${{ cloudbees.scm.branch == 'main' }}
+  uses: jalts-808/j-hackers-web/.cloudbees/workflows/deploy.yaml
+  with:
+    artifact-id: ${{ needs.build.outputs.artifact-id }}
+    artifactVersion: ${{ needs.build.outputs.artifact-version }}
+    environment: j-hackers-k3s
+  secrets: inherit
+  vars: inherit
+```
+
+### The Result
+
+Now when you push to main:
+```
+test → build → deploy (automatic)
+         ↓
+   Kaniko builds image
+   Registers artifact (gets UUID)
+   Extract step parses UUID
+   Deploy receives real UUID
+   Artifact registration succeeds!
+```
+
+**Unify now tracks:**
+- Artifact: `docker.io/jamesalts/hackers-web:1.0-0.0.31`
+- Environment: `j-hackers-k3s`
+- Deployed by: build workflow
+- Full audit trail
+
+### Why Auto-Deploy Makes Sense for Feature Management
+
+**Deploy ≠ Release** with feature flags:
+1. Push code with new feature behind a flag (flag OFF by default)
+2. Auto-deploy to k3s - code is deployed but feature is hidden
+3. Toggle flag in Unify UI - feature goes live instantly
+4. Problem? Toggle OFF immediately - instant rollback
+
+This enables rapid iteration without risky deployments.
+
+### Manual Deploy Option (for api/auth)
+
+The deploy.yaml workflows have a conditional that skips artifact registration for manual deploys:
+```yaml
+- name: Register deployed artifact
+  if: ${{ inputs.artifact-id != 'test-deploy' && inputs.artifact-id != 'manual' && inputs.artifact-id != '' }}
+  uses: cloudbees-io/register-deployed-artifact@v2
+```
+
+Use `artifact-id: manual` for manual deploys when you don't have the real UUID.
+
+---
 
 ### Phase 5: Feature Management
 - [ ] Create FM application in Unify
