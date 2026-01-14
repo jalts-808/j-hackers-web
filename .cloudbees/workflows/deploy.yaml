@@ -51,13 +51,13 @@ jobs:
             image:
               repository: ${{ secrets.DOCKERHUB_USER }}/hackers-web
               tag: ${{ inputs.artifactVersion }}
-            hostname: hackers-web.54.214.225.132.nip.io
+            hostname: hackers-web.54.189.62.135.nip.io
             ingress:
               className: traefik
             config:
               fmKey: ${{ secrets.FM_TOKEN }}
-              apiUrl: http://hackers-api.54.214.225.132.nip.io/api
-              authUrl: http://hackers-auth.54.214.225.132.nip.io
+              apiUrl: http://hackers-api.54.189.62.135.nip.io/api
+              authUrl: http://hackers-auth.54.189.62.135.nip.io
       - name: Register deployed artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
@@ -68,7 +68,7 @@ jobs:
         with:
           content: |-
             ## Deployed environment
-            [Dev frontend](http://hackers-web.54.214.225.132.nip.io/)
+            [Dev frontend](http://hackers-web.54.189.62.135.nip.io/)
 
             Running hackers-web:${{ inputs.artifactVersion }}
           format: MARKDOWN
