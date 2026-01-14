@@ -1,5 +1,7 @@
 # Claude Context - Hackers App Project
 
+> **ALWAYS commit and push code changes immediately after making them. No exceptions.**
+
 ## Project Owner
 James Altheide (jalts-808 on GitHub) - Growth Product Manager at CloudBees
 
@@ -155,6 +157,115 @@ The workflows reference CloudBees demo environment. To use:
 - Change `cloudbees-days/hackers-*` → `jalts-808/j-hackers-*`
 - Change `ldonleycb/*` Docker images → `jamesalts/*`
 - Update environment names to match k3s setup
+
+## Pipeline Comparison: Current vs Enterprise
+
+### Current Flow (This Project)
+```
+commit
+   ↓
+build → save artifact
+   │   ✓ j-hackers-api: Jenkins (Buildah)
+   │   ✓ j-hackers-auth: GitHub Actions (docker/build-push-action)
+   │   ✓ j-hackers-web: CloudBees Unify (Kaniko + Skopeo)
+   ↓
+security scan
+   │   ✓ j-hackers-api: Trivy + Grype (Jenkins)
+   │   ⚠ j-hackers-web: Unify implicit scans
+   │   ✗ j-hackers-auth: None
+   ↓
+push to DockerHub
+   │   ✓ All 3 services
+   ↓
+deploy to k3s                           ✗ Phase 4 (TODO)
+   ↓
+feature flags                           ✗ Phase 5 (TODO)
+   ↓
+release orchestration                   ✗ Phase 6 (TODO)
+```
+
+### True Enterprise Flow (Target State)
+```
+commit
+   ↓
+build → save artifact
+   │   • Artifact stored in registry (Unify, Artifactory, etc.)
+   │   • SBOM generated (Software Bill of Materials)
+   │   • Artifact signed (Sigstore, Cosign)
+   ↓
+security scan (SAST, SCA, container scan)
+   │   • SAST: Static code analysis (SonarQube, Checkmarx)
+   │   • SCA: Dependency vulnerabilities (Snyk, Grype, Trivy)
+   │   • Container: Image vulnerabilities (Trivy, Grype)
+   │   • Secrets: Leaked credentials (GitLeaks, TruffleHog)
+   ↓
+quality gate (BLOCKS if failed)
+   │   • Tests pass? Coverage threshold met?
+   │   • No critical/high CVEs?
+   │   • Code quality score acceptable?
+   ↓
+push to DEV registry
+   │   • Separate registry per environment
+   │   • Or same registry with environment tags
+   ↓
+deploy to DEV → run smoke tests
+   │   • Automated deployment
+   │   • Basic health checks
+   ↓
+approval gate (QA sign-off)
+   │   • Manual approval required
+   │   • QA team verifies functionality
+   ↓
+deploy to STAGING → run E2E tests
+   │   • Full integration tests
+   │   • Performance tests
+   │   • Chaos engineering (optional)
+   ↓
+approval gate (Release Manager)
+   │   • Business sign-off
+   │   • Release notes reviewed
+   ↓
+change request (ServiceNow/Jira)
+   │   • Audit trail created
+   │   • Change window scheduled
+   ↓
+approval gate (CAB - Change Advisory Board)
+   │   • Final approval for production
+   │   • Risk assessment complete
+   ↓
+deploy to PROD (maintenance window)
+   │   • Blue/green or canary deployment
+   │   • Automated rollback ready
+   ↓
+smoke tests → progressive rollout
+   │   • 10% traffic → monitor → 50% → monitor → 100%
+   │   • Automatic rollback on error spike
+   ↓
+feature flags enabled gradually
+   │   • Features enabled per user segment
+   │   • A/B testing capabilities
+   │   • Kill switch available
+   ↓
+observability & feedback
+   │   • Metrics, logs, traces (Prometheus, Grafana, Jaeger)
+   │   • Error tracking (Sentry)
+   │   • User feedback loops
+```
+
+### Gap Analysis: What's Missing
+| Capability | Current | Enterprise | Phase to Add |
+|------------|---------|------------|--------------|
+| Build artifacts | ✓ | ✓ | - |
+| Security scans | Partial | Full suite | Phase 4+ |
+| Quality gates (blocking) | ✗ | ✓ | Phase 4+ |
+| SBOM generation | ✗ | ✓ | Future |
+| Artifact signing | ✗ | ✓ | Future |
+| Multi-environment deploy | ✗ | ✓ | Phase 4 |
+| Approval gates | ✗ | ✓ | Phase 6 |
+| ServiceNow integration | ✗ | ✓ | Phase 6 |
+| Progressive rollout | ✗ | ✓ | Phase 5/6 |
+| Feature flags | ✗ | ✓ | Phase 5 |
+| Observability | ✗ | ✓ | Future |
 
 ## Important Notes
 - Do NOT do anything unless James explicitly asks
