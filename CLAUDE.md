@@ -37,36 +37,37 @@ All three services are building and pushing Docker images to DockerHub.
 
 **COMPLETED:**
 - [x] Created `j-hackers-k3s` environment in Unify (Configurations → Environments)
-- [x] Added secrets: `kubeconfig`, `DOCKERHUB_USER` (jamesalts)
+- [x] Added secrets: `kubeconfig` (BASE64 ENCODED!), `DOCKERHUB_USER` (jamesalts)
 - [x] Added variable: `namespace` (3demo)
 - [x] Updated all deploy.yaml workflows (web, api, auth) to use:
   - Repos: `jalts-808/j-hackers-*` instead of `cloudbees-days/hackers-*`
-  - Hostnames: `*.54.214.225.132.nip.io` instead of `*.preview.cb-demos.io`
+  - Hostnames: `*.54.189.62.135.nip.io`
   - Ingress: `traefik` instead of `nginx`
 - [x] Updated `deployer.yaml` in j-hackers-app to reference correct repos/images
 - [x] Committed and pushed all changes to all 4 repos
-
-**BLOCKED - FIX NEEDED:**
-- [ ] First deploy of j-hackers-web FAILED with kubeconfig error:
-  ```
-  error loading config file: yaml: invalid leading UTF-8 octet
-  ```
-  **Fix:** Re-enter kubeconfig in environment settings (copy/paste corrupted it)
-  - Go to: Configurations → Environments → search "j-hackers-k3s" → Edit
-  - Clear and re-paste kubeconfig from `~/.kube/config-3demo`
+- [x] Fixed kubeconfig encoding (must be BASE64 - `cloudbees-days/setup-kubeconfig` decodes it)
+- [x] Replaced ARM64 instance with x86_64 (Docker images built for x86_64)
 
 **REMAINING:**
-- [ ] Fix kubeconfig and retry j-hackers-web deploy
+- [ ] Update kubeconfig secret in Unify with new base64-encoded value
+- [ ] Deploy j-hackers-web with correct version (e.g., `1.0-0.0.18`, NOT `latest`)
 - [ ] Deploy j-hackers-api and j-hackers-auth
 - [ ] Verify all 3 services running: `KUBECONFIG=~/.kube/config-3demo kubectl get pods -n 3demo`
 - [ ] Test endpoints:
-  - http://hackers-web.54.214.225.132.nip.io
-  - http://hackers-api.54.214.225.132.nip.io
-  - http://hackers-auth.54.214.225.132.nip.io
+  - http://hackers-web.54.189.62.135.nip.io
+  - http://hackers-api.54.189.62.135.nip.io
+  - http://hackers-auth.54.189.62.135.nip.io
 
 ### How to Trigger Deploy (Manual)
 1. Go to component → Workflows tab → click "deploy" → Run
-2. Fill in: `artifact-id: test-deploy`, `artifactVersion: latest`, `environment: j-hackers-k3s`
+2. Fill in: `artifact-id: test-deploy`, `artifactVersion: 1.0-0.0.18`, `environment: j-hackers-k3s`
+
+### How to Update Kubeconfig in Unify
+The kubeconfig MUST be BASE64 encoded (the `cloudbees-days/setup-kubeconfig` action decodes it).
+```bash
+cat ~/.kube/config-3demo | base64 | pbcopy
+```
+Then paste into: Configurations → Environments → j-hackers-k3s → Edit → kubeconfig secret
 
 ### Phase 5: Feature Management
 - [ ] Create FM application in Unify
@@ -100,16 +101,21 @@ All three services are building and pushing Docker images to DockerHub.
 
 ## AWS Infrastructure
 
-### EC2 Instance
+### EC2 Instance (Current - x86_64)
+- **Instance ID**: `i-001c9ceb643b1d99a`
+- **Name**: `3demo-k3s-x86`
+- **Public IP**: `54.189.62.135`
+- **Instance Type**: `t3.medium` (x86_64)
+- **Region**: `us-west-2`
+
+### Old EC2 Instance (Stopped - ARM64, DO NOT USE)
 - **Instance ID**: `i-0cb966d64870f9575`
 - **Name**: `3demo-k3s`
-- **Public IP**: `54.214.225.132` (changes when stopped/started)
-- **Instance Type**: `t4g.medium` (ARM64)
-- **Region**: `us-west-2`
+- **Instance Type**: `t4g.medium` (ARM64) - incompatible with x86_64 Docker images
 
 ### SSH Access
 ```bash
-ssh -i ~/.ssh/3demo-key.pem ubuntu@54.214.225.132
+ssh -i ~/.ssh/3demo-key.pem ubuntu@54.189.62.135
 ```
 
 ### k3s
@@ -121,18 +127,18 @@ KUBECONFIG=~/.kube/config-3demo kubectl get nodes
 ```
 
 ### Jenkins on k3s
-- **URL**: http://jenkins.54.214.225.132.nip.io
+- **URL**: http://jenkins.54.189.62.135.nip.io (needs reinstall on new instance)
 - **Username**: `admin`
 - **Password**: (stored in k3s secret)
 
 ### AWS Commands
 ```bash
 # Check instance status
-aws ec2 describe-instances --instance-ids i-0cb966d64870f9575 --query 'Reservations[0].Instances[0].[State.Name,PublicIpAddress]' --output text
+aws ec2 describe-instances --instance-ids i-001c9ceb643b1d99a --query 'Reservations[0].Instances[0].[State.Name,PublicIpAddress]' --output text
 
 # Start/Stop instance
-aws ec2 start-instances --instance-ids i-0cb966d64870f9575
-aws ec2 stop-instances --instance-ids i-0cb966d64870f9575
+aws ec2 start-instances --instance-ids i-001c9ceb643b1d99a
+aws ec2 stop-instances --instance-ids i-001c9ceb643b1d99a
 ```
 
 ## GitHub Repos
