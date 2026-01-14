@@ -15,29 +15,48 @@ Run a Feature Management example against hackers-web, with everything deployed t
 
 ### ACTIVE WORK: Jenkins → Unify Integration
 
-**What we did:**
+#### ⚠️ CORRECTED INFO (Jan 14, 2026)
+Previous notes had incorrect plugin names. Here's what the docs actually say:
+
+#### Official 5-Step Integration Process (from CloudBees docs)
+| Step | Location | Action | Status |
+|------|----------|--------|--------|
+| 1 | Jenkins | Create **Multibranch Pipeline** (NOT regular Pipeline!) with GitHub branch source | ❌ TODO |
+| 2 | Jenkins | Install `CloudBees Platform Integration plugin::Controllers` | ⚠️ Verify |
+| 3 | Unify | Create CI controller integration | ✅ Done (`3demo-k3s-jenkins`) |
+| 4 | Unify | Create SCM integration for the repo | ⚠️ Verify |
+| 5 | Unify | Create component linked to integrated source | ✅ Done (`j-hackers-api`) |
+
+#### Critical Requirements (from docs)
+- **Job Type**: Must be **Multibranch Pipeline** or **Organization Folder** - other job types NOT supported!
+- **Plugin**: `CloudBees Platform Integration plugin::Controllers` (ID: `cloudbees-cbp-unify-integration-plugin`)
+- **Jenkins Version**: 2.504.2 or later required
+- **SCM**: GitHub, Bitbucket, or GitLab branch source only
+- **Important**: Only builds executed AFTER integration will appear in Unify
+
+#### What Was Previously Done (may be incorrect)
 1. ✅ Created Jenkins controller integration in Unify named `3demo-k3s-jenkins`
-2. ✅ Installed `CloudBees Installation` plugin on Jenkins (NOTE: search for "CloudBees Installation" NOT "CloudBees Installation Plugin" - Unify docs are slightly wrong)
-3. ✅ Installed `CloudBees Platform Insights Plugin` on Jenkins
-4. ✅ Configured plugin with auth code in Jenkins → Manage Jenkins → System → CloudBees Platform Insights
-5. ✅ Enabled "Collect historical build data" option
-6. ✅ Controller now appears in Unify → Jenkins Management
+2. ⚠️ Installed `CloudBees Installation` plugin - **WRONG PLUGIN?** Should be `CloudBees Platform Integration plugin::Controllers`
+3. ⚠️ Installed `CloudBees Platform Insights Plugin` - **Different feature** (CI Insights, not integration)
+4. ⚠️ Configured plugin with auth code - this may be for CI Insights, not the integration plugin
+5. ✅ Controller appears in Unify → Jenkins Management
 
-**What we were testing:**
-- Made a test commit to j-hackers-api (commit `149eb9e`) to trigger a Jenkins build
-- Goal: Verify build data flows from Jenkins into Unify's Runs view
+#### The Real Problem
+Jenkins has NO JOBS, but more importantly:
+- We need a **Multibranch Pipeline** (not a regular Pipeline job)
+- The correct plugin may not be installed
 
-**PROBLEM - Jenkins has no job configured:**
-When we checked Jenkins dashboard, it showed "Welcome to Jenkins!" with NO JOBS. We need to create a Jenkins job that:
-1. Points to `https://github.com/jalts-808/j-hackers-api.git`
-2. Uses the existing `Jenkinsfile` in that repo
-3. Has a webhook or polling to trigger on commits
+#### Next Steps (CORRECTED)
+1. **Check Jenkins plugins** - verify `CloudBees Platform Integration plugin::Controllers` is installed
+2. **Create Multibranch Pipeline job** in Jenkins:
+   - New Item → Multibranch Pipeline
+   - Add GitHub branch source pointing to `jalts-808/j-hackers-api`
+   - It will auto-discover branches with Jenkinsfile
+3. **Verify SCM integration** exists in Unify for `jalts-808/j-hackers-api`
+4. **Trigger a build** and verify it appears in Unify → Runs
 
-**Next steps:**
-1. Create a Jenkins Pipeline job for j-hackers-api
-2. Configure GitHub webhook (or polling) to trigger builds
-3. Push another commit to test
-4. Verify build appears in Unify → Runs
+#### Docs Reference
+- https://docs.cloudbees.com/docs/cloudbees-platform/latest/continuous-integration/ci-getting-started
 
 **Unify URLs:**
 - Jenkins Management: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/jenkins-management/jenkins-controllers
