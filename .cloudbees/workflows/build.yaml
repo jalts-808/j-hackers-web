@@ -62,10 +62,14 @@ jobs:
         id: extract-artifact-id
         uses: docker://alpine:latest
         run: |
-          # Extract the first (and only) artifact ID from the JSON
-          ARTIFACT_ID=$(echo '${{ steps.kaniko.outputs.artifact-ids }}' | sed 's/.*:"\([^"]*\)".*/\1/')
+          # Extract the UUID from the JSON (the value, not the key)
+          # Input format: {"docker.io/user/image:tag": "uuid-here"}
+          ARTIFACT_IDS='${{ steps.kaniko.outputs.artifact-ids }}'
+          echo "Raw artifact-ids: $ARTIFACT_IDS"
+          # Use grep to extract UUID pattern (8-4-4-4-12 hex format)
+          ARTIFACT_ID=$(echo "$ARTIFACT_IDS" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
           echo "Extracted artifact ID: $ARTIFACT_ID"
-          echo "$ARTIFACT_ID" >> $CLOUDBEES_OUTPUTS/artifact-id
+          echo -n "$ARTIFACT_ID" >> $CLOUDBEES_OUTPUTS/artifact-id
       - uses: cloudbees-io/asset-chain-utils-preprod/upload-binary@v1
         name: Upload binary from container build
         continue-on-error: true
