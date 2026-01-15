@@ -5,17 +5,24 @@
 
 ## WHAT'S NEXT (Jan 15, 2026)
 
-**Jenkins build #8 passed!** Now deploy j-hackers-api to k3s:
+**API deployed!** Next: deploy j-hackers-auth, then Phase 5 (Feature Management).
 
-1. Go to: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/components/0c2fe8b7-cc02-48da-a571-b042ad85cbbb/workflows
-2. Run the "deploy" workflow with:
-   - `artifact-id`: `manual`
-   - `artifactVersion`: `3.0-8`
-   - `environment`: `j-hackers-k3s`
-3. Once deployed, test: http://hackers-api.54.189.62.135.nip.io
-4. Verify web app works: http://hackers-web.54.189.62.135.nip.io (should show stories instead of "API Currently Unavailable")
+1. Deploy j-hackers-auth (same process as API - manual workflow dispatch)
+2. Verify all 3 services running
+3. Start Feature Management setup
 
-After API is deployed, deploy auth service (j-hackers-auth) the same way, then move to Phase 5 (Feature Management).
+### Deployment Strategy (for demo purposes)
+
+| Component | CI | CD | Why |
+|-----------|----|----|-----|
+| j-hackers-web | CloudBees Unify | **Auto-deploy** (build triggers deploy) | Shows integrated CI/CD pipeline |
+| j-hackers-api | Jenkins | **Manual deploy** (workflow_dispatch) | Shows contrast - CI separate from CD |
+| j-hackers-auth | GitHub Actions | **Manual deploy** (workflow_dispatch) | Another CI system, same manual CD |
+
+**Note**: Feature Management doesn't require CI/CD integration. Feature flags are controlled at **runtime** via SDK - the deployment method (auto vs manual) doesn't matter. The SDK in the running app checks flag states from CloudBees Unify.
+
+### Known Issue (Jan 15, 2026)
+Runs triggered via `workflow_dispatch` don't appear in the Runs list UI immediately (search index delay). The runs work and can be accessed via direct URL. Reported to CloudBees.
 
 ## Project Owner
 James Altheide (jalts-808 on GitHub) - Growth Product Manager at CloudBees
