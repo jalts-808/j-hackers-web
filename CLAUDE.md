@@ -3,6 +3,20 @@
 > **ALWAYS commit and push code changes immediately after making them. No exceptions.**
 > **Do NOT start Playwright/browser automation unless explicitly asked.**
 
+## WHAT'S NEXT (Jan 15, 2026)
+
+**Jenkins build #8 passed!** Now deploy j-hackers-api to k3s:
+
+1. Go to: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/components/0c2fe8b7-cc02-48da-a571-b042ad85cbbb/workflows
+2. Run the "deploy" workflow with:
+   - `artifact-id`: `manual`
+   - `artifactVersion`: `3.0-8`
+   - `environment`: `j-hackers-k3s`
+3. Once deployed, test: http://hackers-api.54.189.62.135.nip.io
+4. Verify web app works: http://hackers-web.54.189.62.135.nip.io (should show stories instead of "API Currently Unavailable")
+
+After API is deployed, deploy auth service (j-hackers-auth) the same way, then move to Phase 5 (Feature Management).
+
 ## Project Owner
 James Altheide (jalts-808 on GitHub) - Growth Product Manager at CloudBees
 
