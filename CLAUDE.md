@@ -1,6 +1,7 @@
 # Claude Context - Hackers App Project
 
 > **ALWAYS commit and push code changes immediately after making them. No exceptions.**
+> **Do NOT start Playwright/browser automation unless explicitly asked.**
 
 ## Project Owner
 James Altheide (jalts-808 on GitHub) - Growth Product Manager at CloudBees
