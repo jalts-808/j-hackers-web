@@ -2,24 +2,69 @@
 
 > **ALWAYS commit and push code changes immediately after making them. No exceptions.**
 > **Do NOT start Playwright/browser automation unless explicitly asked.**
+> **Do NOT close Playwright browsers unless explicitly asked.**
 
-## WHAT'S NEXT (Jan 15, 2026)
+## WHAT'S NEXT (Jan 15, 2026 - Updated 2:30 PM)
 
-**API deployed!** Next: deploy j-hackers-auth, then Phase 5 (Feature Management).
+**API deployed and working!** Auth service needs deployment, then Feature Management.
 
-1. Deploy j-hackers-auth (same process as API - manual workflow dispatch)
-2. Verify all 3 services running
-3. Start Feature Management setup
+### Immediate Next Steps
+1. **Deploy j-hackers-auth** to k3s:
+   - Go to j-hackers-auth component → Workflows → deploy → Run
+   - Parameters: `artifact-id: manual`, `artifactVersion: 2.0-14` (check latest from GHA build), `environment: j-hackers-k3s`
+2. **Verify auth endpoint**: http://hackers-auth.54.189.62.135.nip.io/users
+3. **Test login** on web app
+4. **Start Phase 5: Feature Management**
+
+### Current Service Status
+| Service | Deployed | Endpoint | Status |
+|---------|----------|----------|--------|
+| j-hackers-web | ✅ | http://hackers-web.54.189.62.135.nip.io | Working |
+| j-hackers-api | ✅ | http://hackers-api.54.189.62.135.nip.io | Working |
+| j-hackers-auth | ❌ | http://hackers-auth.54.189.62.135.nip.io | **NEEDS DEPLOY** |
 
 ### Deployment Strategy (for demo purposes)
 
 | Component | CI | CD | Why |
 |-----------|----|----|-----|
 | j-hackers-web | CloudBees Unify | **Auto-deploy** (build triggers deploy) | Shows integrated CI/CD pipeline |
-| j-hackers-api | Jenkins | **Manual deploy** (workflow_dispatch) | Shows contrast - CI separate from CD |
-| j-hackers-auth | GitHub Actions | **Manual deploy** (workflow_dispatch) | Another CI system, same manual CD |
+| j-hackers-api | GHA (no CB actions) | **Manual deploy** (workflow_dispatch) | Shows contrast - CI separate from CD |
+| j-hackers-auth | GHA + CloudBees actions | **Manual deploy** (workflow_dispatch) | Shows GHA+Unify integration |
 
 **Note**: Feature Management doesn't require CI/CD integration. Feature flags are controlled at **runtime** via SDK - the deployment method (auto vs manual) doesn't matter. The SDK in the running app checks flag states from CloudBees Unify.
+
+---
+
+## IMPORTANT: GitHub App Integration Fix (Jan 15, 2026)
+
+### Problem We Solved
+GHA workflows with CloudBees actions (`cloudbees-io-gha/publish-evidence-item`, `register-build-artifact`, etc.) were failing with:
+```
+Error: 404 Not Found : unable to retrieve run details for this workflow
+```
+
+### Root Cause
+The CloudBees GitHub App was installed via an **inherited integration** from a parent org. Components were created with an orphaned endpoint ID that didn't match any direct integration in j-hackers org.
+
+GHA OIDC authentication requires a **direct integration** for the GitHub account making the request - inherited integrations don't work for GHA OIDC.
+
+### The Fix
+1. **Uninstalled** CloudBees GitHub App from jalts-808 GitHub account
+2. **Reinstalled** fresh from https://github.com/apps/cloudbees-platform
+3. OAuth callback linked it directly to **j-hackers org** (not inherited)
+4. **Deleted and recreated ALL components** (they now use new endpoint ID)
+
+### New Integration Details
+- **Integration Name**: `j-hackers`
+- **Endpoint ID**: `953edc92-9c1a-48c9-9329-412cf8083a5c`
+- **Location**: j-hackers org → Configurations → Integrations
+
+### If This Happens Again
+If GHA CloudBees actions fail with "unable to retrieve run details":
+1. Check component endpoint ID matches an integration in Configurations → Integrations
+2. If mismatch, may need to reinstall GitHub App and recreate components
+
+---
 
 ### Known Issue (Jan 15, 2026)
 Runs triggered via `workflow_dispatch` don't appear in the Runs list UI immediately (search index delay). The runs work and can be accessed via direct URL. Reported to CloudBees.
