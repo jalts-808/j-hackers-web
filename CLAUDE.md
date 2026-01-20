@@ -4,34 +4,31 @@
 > **Do NOT start Playwright/browser automation unless explicitly asked.**
 > **Do NOT close Playwright browsers unless explicitly asked.**
 
-## WHAT'S NEXT (Jan 15, 2026 - Updated 2:30 PM)
+## WHAT'S NEXT (Jan 20, 2026)
 
-**API deployed and working!** Auth service needs deployment, then Feature Management.
+**Phase 5 (Feature Management) COMPLETE!** All 3 services deployed, FM SDK integrated, 4 flags working.
 
-### Immediate Next Steps
-1. **Deploy j-hackers-auth** to k3s:
-   - Go to j-hackers-auth component → Workflows → deploy → Run
-   - Parameters: `artifact-id: manual`, `artifactVersion: 2.0-14` (check latest from GHA build), `environment: j-hackers-k3s`
-2. **Verify auth endpoint**: http://hackers-auth.54.189.62.135.nip.io/users
-3. **Test login** on web app
-4. **Start Phase 5: Feature Management**
+### Current Focus: Phase 6 - Release Orchestration
+1. **Customize j-hackers-app workflows** for our k3s environment
+2. **Set up multi-environment deployment** (e.g., staging → prod)
+3. **Configure approval gates** between environments
+4. **Test release pipeline** with manifest-based deployments
 
 ### Current Service Status
 | Service | Deployed | Endpoint | Status |
 |---------|----------|----------|--------|
 | j-hackers-web | ✅ | http://hackers-web.54.189.62.135.nip.io | Working |
 | j-hackers-api | ✅ | http://hackers-api.54.189.62.135.nip.io | Working |
-| j-hackers-auth | ❌ | http://hackers-auth.54.189.62.135.nip.io | **NEEDS DEPLOY** |
+| j-hackers-auth | ✅ | http://hackers-auth.54.189.62.135.nip.io | Working |
 
-### Deployment Strategy (for demo purposes)
-
+### Build Systems
 | Component | CI | CD | Why |
 |-----------|----|----|-----|
 | j-hackers-web | CloudBees Unify | **Auto-deploy** (build triggers deploy) | Shows integrated CI/CD pipeline |
-| j-hackers-api | GHA (no CB actions) | **Manual deploy** (workflow_dispatch) | Shows contrast - CI separate from CD |
+| j-hackers-api | **Jenkins** | **Manual deploy** (workflow_dispatch) | Shows Jenkins→Unify integration |
 | j-hackers-auth | GHA + CloudBees actions | **Manual deploy** (workflow_dispatch) | Shows GHA+Unify integration |
 
-**Note**: Feature Management doesn't require CI/CD integration. Feature flags are controlled at **runtime** via SDK - the deployment method (auto vs manual) doesn't matter. The SDK in the running app checks flag states from CloudBees Unify.
+**Note**: j-hackers-api builds ONLY on Jenkins (GHA workflow deleted Jan 20, 2026).
 
 ---
 
@@ -78,52 +75,16 @@ Learning project to understand CloudBees Unify by building and deploying a 3-com
 ## End Goal
 Run a Feature Management example against hackers-web, with everything deployed to a personal k3s instance on AWS.
 
-## Current State (Last Updated: Jan 14, 2026)
+## Current State (Last Updated: Jan 20, 2026)
 
-### ACTIVE WORK: Jenkins → Unify Integration
+### Jenkins → Unify Integration ✅ WORKING
 
-#### ⚠️ CORRECTED INFO (Jan 14, 2026)
-Previous notes had incorrect plugin names. Here's what the docs actually say:
+**Jenkins URL**: http://jenkins.54.189.62.135.nip.io
+**Credentials**: admin / admin123
 
-#### Official 5-Step Integration Process (from CloudBees docs)
-| Step | Location | Action | Status |
-|------|----------|--------|--------|
-| 1 | Jenkins | Create **Multibranch Pipeline** (NOT regular Pipeline!) with GitHub branch source | ❌ TODO |
-| 2 | Jenkins | Install `CloudBees Platform Integration plugin::Controllers` | ⚠️ Verify |
-| 3 | Unify | Create CI controller integration | ✅ Done (`3demo-k3s-jenkins`) |
-| 4 | Unify | Create SCM integration for the repo | ⚠️ Verify |
-| 5 | Unify | Create component linked to integrated source | ✅ Done (`j-hackers-api`) |
+j-hackers-api builds on Jenkins via Multibranch Pipeline. GHA workflow was deleted (Jan 20, 2026) so ONLY Jenkins builds this component.
 
-#### Critical Requirements (from docs)
-- **Job Type**: Must be **Multibranch Pipeline** or **Organization Folder** - other job types NOT supported!
-- **Plugin**: `CloudBees Platform Integration plugin::Controllers` (ID: `cloudbees-cbp-unify-integration-plugin`)
-- **Jenkins Version**: 2.504.2 or later required
-- **SCM**: GitHub, Bitbucket, or GitLab branch source only
-- **Important**: Only builds executed AFTER integration will appear in Unify
-
-#### What Was Previously Done (may be incorrect)
-1. ✅ Created Jenkins controller integration in Unify named `3demo-k3s-jenkins`
-2. ⚠️ Installed `CloudBees Installation` plugin - **WRONG PLUGIN?** Should be `CloudBees Platform Integration plugin::Controllers`
-3. ⚠️ Installed `CloudBees Platform Insights Plugin` - **Different feature** (CI Insights, not integration)
-4. ⚠️ Configured plugin with auth code - this may be for CI Insights, not the integration plugin
-5. ✅ Controller appears in Unify → Jenkins Management
-
-#### The Real Problem
-Jenkins has NO JOBS, but more importantly:
-- We need a **Multibranch Pipeline** (not a regular Pipeline job)
-- The correct plugin may not be installed
-
-#### Next Steps (CORRECTED)
-1. **Check Jenkins plugins** - verify `CloudBees Platform Integration plugin::Controllers` is installed
-2. **Create Multibranch Pipeline job** in Jenkins:
-   - New Item → Multibranch Pipeline
-   - Add GitHub branch source pointing to `jalts-808/j-hackers-api`
-   - It will auto-discover branches with Jenkinsfile
-3. **Verify SCM integration** exists in Unify for `jalts-808/j-hackers-api`
-4. **Trigger a build** and verify it appears in Unify → Runs
-
-#### Docs Reference
-- https://docs.cloudbees.com/docs/cloudbees-platform/latest/continuous-integration/ci-getting-started
+**Known Issue**: Browser login to Jenkins may have CSRF issues. Credentials verified working via API (`kubectl exec` into Jenkins pod).
 
 **Unify URLs:**
 - Jenkins Management: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/jenkins-management/jenkins-controllers
@@ -136,50 +97,31 @@ Jenkins has NO JOBS, but more importantly:
 | j-hackers-auth | GitHub Actions | `jamesalts/hackers-auth` | Builds working |
 | j-hackers-web | CloudBees Unify | `jamesalts/hackers-web` | Builds working |
 
-All three services are building and pushing Docker images to DockerHub.
+All three services building and pushing Docker images to DockerHub.
 
 ## Project Roadmap
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| **1** | AWS Infrastructure - EC2 + k3s setup | **Complete** |
-| **2** | Jenkins on k3s | **Complete** |
-| **3** | CloudBees Unify builds | **Complete** |
-| **4** | Deploy all 3 services to k3s | **IN PROGRESS** |
-| **5** | Feature Management setup | Pending |
-| **6** | Release orchestration *(optional)* | Pending |
+| **1** | AWS Infrastructure - EC2 + k3s setup | ✅ Complete |
+| **2** | Jenkins on k3s | ✅ Complete |
+| **3** | CloudBees Unify builds | ✅ Complete |
+| **4** | Deploy all 3 services to k3s | ✅ Complete |
+| **5** | Feature Management setup | ✅ Complete |
+| **6** | Release orchestration | **IN PROGRESS** |
 
-### Phase 4: Deploy to k3s (IN PROGRESS)
+### Phase 4: Deploy to k3s ✅ COMPLETE
 
-**COMPLETED:**
-- [x] Created `j-hackers-k3s` environment in Unify (Configurations → Environments)
-- [x] Added secrets: `kubeconfig` (BASE64 ENCODED!), `DOCKERHUB_USER` (jamesalts)
-- [x] Added variable: `namespace` (3demo)
-- [x] Updated all deploy.yaml workflows (web, api, auth) to use:
-  - Repos: `jalts-808/j-hackers-*` instead of `cloudbees-days/hackers-*`
-  - Hostnames: `*.54.189.62.135.nip.io`
-  - Ingress: `traefik` instead of `nginx`
-- [x] Updated `deployer.yaml` in j-hackers-app to reference correct repos/images
-- [x] Committed and pushed all changes to all 4 repos
-- [x] Fixed kubeconfig encoding (must be BASE64 - `cloudbees-days/setup-kubeconfig` decodes it)
-- [x] Replaced ARM64 instance with x86_64 (Docker images built for x86_64)
-- [x] **j-hackers-web deployed with auto-deploy and artifact tracking** (see below)
+All 3 services deployed and running on k3s:
+- j-hackers-web: Auto-deploy on main branch push
+- j-hackers-api: Manual deploy via workflow_dispatch
+- j-hackers-auth: Manual deploy via workflow_dispatch
 
-**REMAINING:**
-- [ ] Deploy j-hackers-api and j-hackers-auth (manual deploy with `artifact-id: manual`)
-- [ ] Verify all 3 services running: `KUBECONFIG=~/.kube/config-3demo kubectl get pods -n 3demo`
-- [ ] Test endpoints:
-  - http://hackers-web.54.189.62.135.nip.io ✅ (deployed)
-  - http://hackers-api.54.189.62.135.nip.io
-  - http://hackers-auth.54.189.62.135.nip.io
+**Environment**: `j-hackers-k3s` in Unify with kubeconfig (BASE64), DOCKERHUB_USER, namespace secrets.
 
-### How to Trigger Deploy (Manual - for api/auth)
+### How to Trigger Manual Deploy (for api/auth)
 1. Go to component → Workflows tab → click "deploy" → Run
 2. Fill in: `artifact-id: manual`, `artifactVersion: <version>`, `environment: j-hackers-k3s`
-   - j-hackers-api: version `3.0-3`
-   - j-hackers-auth: version `2.0-4`
-
-Note: Using `artifact-id: manual` skips artifact registration (step is conditional). This is fine for manual deploys but means no artifact tracking in Unify.
 
 ### How to Update Kubeconfig in Unify
 The kubeconfig MUST be BASE64 encoded (the `cloudbees-days/setup-kubeconfig` action decodes it).
@@ -300,11 +242,30 @@ Use `artifact-id: manual` for manual deploys when you don't have the real UUID.
 
 ---
 
-### Phase 5: Feature Management
-- [ ] Create FM application in Unify
-- [ ] Create feature flags
-- [ ] Integrate SDK into hackers-web
-- [ ] Test flag toggling
+### Phase 5: Feature Management ✅ COMPLETE
+
+**FM Application**: `j-hackers-app` in Unify → Feature Management
+**SDK Key**: `3370babe-d68c-45da-861f-a399621330e1` (j-hackers-k3s environment)
+**FM_TOKEN secret**: Added to j-hackers-k3s environment
+
+#### Flags (auto-registered from SDK)
+| Flag | Type | Default | Purpose |
+|------|------|---------|---------|
+| `default.show` | Boolean | false | Show "Show HN" stories tab |
+| `default.ask` | Boolean | false | Show "Ask HN" stories tab |
+| `default.score` | Boolean | false | Show story scores |
+| `default.headerColor` | String | "is-dark" | Header color theme |
+
+#### How Flags Work
+1. **Flag Definition**: `src/utils/flag.js` - defines flags with `Rox.Flag()` or `Rox.RoxString()`
+2. **Flag Usage**: Components import `Flags` and call `Flags.xxx.isEnabled()` or `Flags.xxx.getValue()`
+3. **Custom Properties**: Set for targeting with `Rox.setCustomBooleanProperty("isBetaUser", ...)`
+4. **Runtime Control**: Toggle flags in Unify UI → instant effect (no redeploy needed)
+
+#### Targeting & Rollouts
+- **Targeting**: Use custom properties (isBetaUser, isLoggedIn, company) in flag conditions
+- **Percentage Rollouts**: Select "Split" in THEN dropdown, set percentages per variant
+- **A/B Testing**: Different from targeting - random distribution regardless of properties
 
 ## Repository Structure
 ```
@@ -444,11 +405,11 @@ security scan
 push to DockerHub
    │   ✓ All 3 services
    ↓
-deploy to k3s                           ✗ Phase 4 (TODO)
+deploy to k3s                           ✓ Phase 4 COMPLETE
    ↓
-feature flags                           ✗ Phase 5 (TODO)
+feature flags                           ✓ Phase 5 COMPLETE
    ↓
-release orchestration                   ✗ Phase 6 (TODO)
+release orchestration                   ⚠ Phase 6 IN PROGRESS
 ```
 
 ### True Enterprise Flow (Target State)
@@ -523,15 +484,15 @@ observability & feedback
 | Capability | Current | Enterprise | Phase to Add |
 |------------|---------|------------|--------------|
 | Build artifacts | ✓ | ✓ | - |
-| Security scans | Partial | Full suite | Phase 4+ |
-| Quality gates (blocking) | ✗ | ✓ | Phase 4+ |
+| Security scans | Partial | Full suite | Future |
+| Quality gates (blocking) | ✗ | ✓ | Future |
 | SBOM generation | ✗ | ✓ | Future |
 | Artifact signing | ✗ | ✓ | Future |
-| Multi-environment deploy | ✗ | ✓ | Phase 4 |
-| Approval gates | ✗ | ✓ | Phase 6 |
+| Multi-environment deploy | ✓ (k3s) | ✓ | ✅ Done |
+| Approval gates | ✗ | ✓ | **Phase 6** |
 | ServiceNow integration | ✗ | ✓ | Phase 6 |
-| Progressive rollout | ✗ | ✓ | Phase 5/6 |
-| Feature flags | ✗ | ✓ | Phase 5 |
+| Progressive rollout | ✓ (via FM) | ✓ | ✅ Done |
+| Feature flags | ✓ | ✓ | ✅ Done |
 | Observability | ✗ | ✓ | Future |
 
 ## Important Notes
