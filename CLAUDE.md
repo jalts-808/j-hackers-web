@@ -84,7 +84,17 @@ Run a Feature Management example against hackers-web, with everything deployed t
 
 j-hackers-api builds on Jenkins via Multibranch Pipeline. GHA workflow was deleted (Jan 20, 2026) so ONLY Jenkins builds this component.
 
-**Known Issue**: Browser login to Jenkins may have CSRF issues. Credentials verified working via API (`kubectl exec` into Jenkins pod).
+#### Webhook Auto-Trigger (Fixed Jan 20, 2026)
+Pushes to j-hackers-api now auto-trigger Jenkins builds:
+- **Webhook**: GitHub → `http://jenkins.54.189.62.135.nip.io/github-webhook/`
+- **Plugins installed**: `github`, `github-branch-source`
+- **Job config**: Changed from plain Git to **GitHub Branch Source** (required for auto-trigger)
+
+#### If Webhook Stops Working
+1. Check webhook exists: `gh api repos/jalts-808/j-hackers-api/hooks`
+2. Check deliveries: `gh api repos/jalts-808/j-hackers-api/hooks/<id>/deliveries`
+3. Verify plugins installed in Jenkins: `github`, `github-branch-source`
+4. Verify job uses `GitHubSCMSource` not `GitSCMSource` in config.xml
 
 **Unify URLs:**
 - Jenkins Management: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/jenkins-management/jenkins-controllers
