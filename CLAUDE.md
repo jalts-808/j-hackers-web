@@ -67,7 +67,7 @@ If GHA CloudBees actions fail with "unable to retrieve run details":
 Runs triggered via `workflow_dispatch` don't appear in the Runs list UI immediately (search index delay). The runs work and can be accessed via direct URL. Reported to CloudBees.
 
 ## Project Owner
-James Altheide (jalts-808 on GitHub) - Growth Product Manager at CloudBees
+James Altheide (jalts-808 on GitHub) - Product Manager at CloudBees
 
 ## What This Project Is
 Learning project to understand CloudBees Unify by building and deploying a 3-component application.
