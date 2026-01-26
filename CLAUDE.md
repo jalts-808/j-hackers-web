@@ -217,6 +217,86 @@ This is a **CloudBees backend issue** - their API cannot process connection requ
 
 ---
 
+## Bug Report for CloudBees Support
+
+**Copy the section below to submit to CloudBees Support:**
+
+---
+
+### Bug Report: Jenkins Controller Integration - HTTP 500 Errors on Connection Endpoints
+
+**Summary:**
+Unable to connect Jenkins controller to CloudBees Platform. Both Automatic and Manual connection methods fail with HTTP 500 errors from CloudBees API endpoints.
+
+**Environment:**
+- CloudBees Organization: `j-hackers`
+- Organization ID: `eb3ae95d-a459-4f0a-ac58-57d752e4a373`
+- Integration Name: `j-hackers-jenkins-2`
+- Jenkins URL: `http://jenkins.54.201.69.176.nip.io/`
+- Jenkins Version: 2.528.3
+- CloudBees Platform Integration Plugin: Installed and configured
+- CloudBees API Endpoint: `https://api.cloudbees.io/`
+
+**Date/Time of Issue:**
+January 26, 2026, starting approximately 14:00 UTC
+
+**Steps to Reproduce:**
+
+1. Navigate to Configurations → Integrations in CloudBees Platform
+2. Create new Jenkins Controller integration with:
+   - Name: `j-hackers-jenkins-2`
+   - Controller URL: `http://jenkins.54.201.69.176.nip.io`
+3. Select "Automatic connection" (recommended) and submit
+4. Click "Go to controller" button to initiate handshake
+5. **Result:** CloudBees UI displays "An unexpected error occurred"
+
+Alternative attempt with Manual connection:
+1. Edit integration, select "Manual connection"
+2. Click "Download the PEM file" button
+3. **Result:** CloudBees UI displays "An unexpected error occurred"
+
+**Error Details:**
+
+Browser console shows:
+```
+Failed to load resource: the server responded with a status of 500
+POST https://api.cloudbees.io/.../endpoints/192a579a-29ca-405e-ae7c-c1cc9e073420
+```
+
+Jenkins logs show:
+```
+500 Internal Server Error on POST https://api.cloudbees.io/token-exchange/external-access-token-exchange/challenge
+```
+
+**Expected Behavior:**
+- Automatic connection: Handshake completes, integration status changes to "connected"
+- Manual connection: PEM file downloads successfully for manual configuration
+
+**Actual Behavior:**
+- Both connection methods fail with HTTP 500 errors
+- Integration remains in "disconnected" status
+- Jenkins shows error banner: "The instance is experiencing errors sending data to CloudBees Platform"
+
+**Troubleshooting Already Performed:**
+1. Verified Jenkins URL is correct and accessible
+2. Deleted and recreated integration multiple times
+3. Cleared stale credentials from Jenkins configuration via Script Console
+4. Tried both Automatic and Manual connection types
+5. Verified CloudBees Platform Integration Plugin is installed on Jenkins
+
+**Impact:**
+- Jenkins builds complete but are not reported to CloudBees Platform
+- Unable to use CloudBees Unify for Jenkins CI visibility
+- Blocking release orchestration workflow implementation
+
+**Additional Context:**
+This issue started after our EC2 instance was restarted and received a new IP address. The Jenkins URL was updated accordingly, but the CloudBees API endpoints are returning 500 errors regardless of the connection method used.
+
+**Request:**
+Please investigate the HTTP 500 errors on the Jenkins integration endpoints. Is there a known outage or issue with the token-exchange and PEM generation APIs?
+
+---
+
 ## Infrastructure
 
 ### AWS EC2 (k3s Server)
