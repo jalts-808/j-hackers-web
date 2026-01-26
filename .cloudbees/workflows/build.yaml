@@ -100,3 +100,13 @@ jobs:
       environment: j-hackers-k3s
     secrets: inherit
     vars: inherit
+  deploy-staging:
+    needs: build
+    if: ${{ cloudbees.scm.branch == 'main' }}
+    uses: jalts-808/j-hackers-web/.cloudbees/workflows/deploy.yaml
+    with:
+      artifact-id: ${{ needs.build.outputs.artifact-id }}
+      artifactVersion: ${{ needs.build.outputs.artifact-version }}
+      environment: j-hackers-staging
+    secrets: inherit
+    vars: inherit
