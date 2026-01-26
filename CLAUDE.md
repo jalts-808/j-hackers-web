@@ -173,6 +173,48 @@ GHA workflows with CloudBees actions failing with `404 Not Found : unable to ret
 ### Workflow Dispatch UI Delay
 Runs triggered via `workflow_dispatch` don't appear in Runs list immediately (search index delay). Runs work and can be accessed via direct URL.
 
+### Jenkins CloudBees Integration Broken - CloudBees API 500 Errors (Jan 26, 2026)
+**Status: BLOCKED - CloudBees Backend Issue**
+
+When the EC2 instance restarted and got a new IP (54.201.69.176 instead of 54.189.62.135), the Jenkins CloudBees integration broke. Multiple attempts to fix it have failed due to CloudBees API errors.
+
+**Symptoms:**
+- Jenkins shows error banner: "The instance is experiencing errors sending data to CloudBees Platform"
+- Jenkins logs show `500` errors on `POST https://api.cloudbees.io/token-exchange/external-access-token-exchange/challenge`
+- CloudBees integration shows "disconnected" status
+- Builds complete but don't appear in CloudBees Unify Runs
+
+**What We Tried:**
+1. ✅ Updated k3s ingress to use new IP
+2. ✅ Updated Jenkins URL to `http://jenkins.54.201.69.176.nip.io/`
+3. ✅ Deleted and recreated CloudBees integration (multiple times)
+4. ✅ Tried Automatic connection (recommended) - gets 500 errors from CloudBees API
+5. ✅ Tried Manual connection - PEM download fails with "unexpected error"
+6. ✅ Cleared stale Private key credential in Jenkins via Script Console
+7. ✅ Created fresh integration `j-hackers-jenkins-2` - still blocked by API errors
+
+**Root Cause:**
+CloudBees Platform API is returning HTTP 500 (Internal Server Error) on multiple endpoints:
+- Token-exchange endpoint (automatic connection)
+- PEM generation endpoint (manual connection)
+This is a **CloudBees backend issue** - their API cannot process connection requests.
+
+**Current Configuration:**
+- Jenkins URL: `http://jenkins.54.201.69.176.nip.io/`
+- CloudBees Integration: `j-hackers-jenkins-2` (disconnected due to API errors)
+- CloudBees Endpoint: `https://api.cloudbees.io/`
+
+**Next Steps:**
+1. Wait for CloudBees backend to recover
+2. Contact CloudBees support about 500 errors on integration endpoints
+3. Check CloudBees status page for outages
+4. Once backend recovers, try Automatic connection first (recommended)
+
+**Verification (once fixed):**
+- Check Jenkins logs for successful API calls (no 401/500)
+- CloudBees integration status changes to "connected"
+- Trigger a build and verify it appears in CloudBees Unify within ~1 minute
+
 ---
 
 ## Infrastructure
