@@ -25,7 +25,7 @@ on:
       environment:
         type: string
         required: true
-        default: micro-hacker
+        default: j-hackers-k3s
 env:
   APP_NAME: microhacker-web
 jobs:
@@ -51,13 +51,13 @@ jobs:
             image:
               repository: ${{ secrets.DOCKERHUB_USER }}/hackers-web
               tag: ${{ inputs.artifactVersion }}
-            hostname: hackers-web.54.189.62.135.nip.io
+            hostname: ${{ vars.host_prefix }}hackers-web.54.201.69.176.nip.io
             ingress:
               className: traefik
             config:
               fmKey: ${{ secrets.FM_TOKEN }}
-              apiUrl: http://hackers-api.54.189.62.135.nip.io/api
-              authUrl: http://hackers-auth.54.189.62.135.nip.io
+              apiUrl: http://${{ vars.host_prefix }}hackers-api.54.201.69.176.nip.io/api
+              authUrl: http://${{ vars.host_prefix }}hackers-auth.54.201.69.176.nip.io
       - name: Register deployed artifact
         if: ${{ inputs.artifact-id != 'test-deploy' && inputs.artifact-id != 'manual' && inputs.artifact-id != '' }}
         uses: cloudbees-io/register-deployed-artifact@v2
@@ -68,8 +68,8 @@ jobs:
         uses: cloudbees-io/publish-evidence-item@v1
         with:
           content: |-
-            ## Deployed environment
-            [Dev frontend](http://hackers-web.54.189.62.135.nip.io/)
+            ## Deployed to ${{ inputs.environment }}
+            [Frontend](http://${{ vars.host_prefix }}hackers-web.54.201.69.176.nip.io/)
 
             Running hackers-web:${{ inputs.artifactVersion }}
           format: MARKDOWN
