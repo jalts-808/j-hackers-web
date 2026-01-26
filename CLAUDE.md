@@ -4,352 +4,105 @@
 > **Do NOT start Playwright/browser automation unless explicitly asked.**
 > **Do NOT close Playwright browsers unless explicitly asked.**
 
-## WHAT'S NEXT (Jan 20, 2026)
+## Release Orchestration - How It Should Work
 
-**Phase 5 (Feature Management) COMPLETE!** All 3 services deployed, FM SDK integrated, 4 flags working.
+**Current state**: We built a per-component CI/CD shortcut where j-hackers-web's build workflow embeds deploy jobs. This only handles ONE service.
 
-### Current Focus: Phase 6 - Release Orchestration
-1. **Customize j-hackers-app workflows** for our k3s environment
-2. **Set up multi-environment deployment** (e.g., staging → prod)
-3. **Configure approval gates** between environments
-4. **Test release pipeline** with manifest-based deployments
+**Proper CloudBees Release Orchestration** uses j-hackers-app to coordinate ALL services:
 
-### Current Service Status
-| Service | Deployed | Endpoint | Status |
-|---------|----------|----------|--------|
-| j-hackers-web | ✅ | http://hackers-web.54.189.62.135.nip.io | Working |
-| j-hackers-api | ✅ | http://hackers-api.54.189.62.135.nip.io | Working |
-| j-hackers-auth | ✅ | http://hackers-auth.54.189.62.135.nip.io | Working |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CI PIPELINES (produce artifacts independently)                 │
+│                                                                 │
+│  j-hackers-web  → CloudBees build → registers artifact (UUID)  │
+│  j-hackers-api  → Jenkins build   → registers artifact (UUID)  │
+│  j-hackers-auth → GHA build       → registers artifact (UUID)  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+                    Artifacts registered in CloudBees
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  RELEASE WORKFLOW (j-hackers-app/deployer.yaml)                 │
+│                                                                 │
+│  1. Picks up latest artifacts for ALL components                │
+│  2. Creates a "manifest" with versions/UUIDs to deploy          │
+│  3. Deploys ALL services to staging                             │
+│  4. Approval gate                                               │
+│  5. Deploys ALL services to production                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### The Manifest Pattern
+The `deployer.yaml` takes a manifest JSON specifying what to deploy:
+```json
+{
+  "hackers-api": {"jamesalts/hackers-api": {"deploy": true, "version": "1.0-X", "id": "uuid"}},
+  "hackers-auth": {"jamesalts/hackers-auth": {"deploy": true, "version": "1.0-X", "id": "uuid"}},
+  "hackers-web": {"jamesalts/hackers-web": {"deploy": true, "version": "1.0-X", "id": "uuid"}}
+}
+```
+
+### What's Next
+- Set up j-hackers-app release workflow to work with our environments
+- Ensure all 3 CI pipelines register artifacts properly
+- Use release workflow to deploy all services together through staging → approval → prod
+
+---
+
+## Current State (Jan 26, 2026)
+
+### Environments
+| Environment | Namespace | URL | Purpose |
+|------------|-----------|-----|---------|
+| **Production** | `3demo` | http://hackers-web.54.201.69.176.nip.io | All 3 services |
+| **Staging** | `3demo-staging` | http://staging-hackers-web.54.201.69.176.nip.io | Web only (currently) |
+
+### j-hackers-web Current Flow (Simplified CI/CD)
+```
+Push to main → test → build → deploy-staging → APPROVAL → deploy (prod)
+```
+- Staging deploys automatically after build
+- Manual approval gate required
+- Production deploys only after approval
+- Artifact UUID passed correctly for registration
 
 ### Build Systems
-| Component | CI | CD | Why |
-|-----------|----|----|-----|
-| j-hackers-web | CloudBees Unify | **Auto-deploy** (build triggers deploy) | Shows integrated CI/CD pipeline |
-| j-hackers-api | **Jenkins** | **Manual deploy** (workflow_dispatch) | Shows Jenkins→Unify integration |
-| j-hackers-auth | GHA + CloudBees actions | **Manual deploy** (workflow_dispatch) | Shows GHA+Unify integration |
-
-**Note**: j-hackers-api builds ONLY on Jenkins (GHA workflow deleted Jan 20, 2026).
+| Component | CI | Artifact Registration | Notes |
+|-----------|----|-----------------------|-------|
+| j-hackers-web | CloudBees Unify | ✅ Working | Kaniko extracts UUID |
+| j-hackers-api | Jenkins | ⚠️ Check | May need UUID extraction |
+| j-hackers-auth | GitHub Actions | ⚠️ Check | May need UUID extraction |
 
 ---
 
-## IMPORTANT: GitHub App Integration Fix (Jan 15, 2026)
+## Known Bugs
 
-### Problem We Solved
-GHA workflows with CloudBees actions (`cloudbees-io-gha/publish-evidence-item`, `register-build-artifact`, etc.) were failing with:
-```
-Error: 404 Not Found : unable to retrieve run details for this workflow
-```
+### GitHub App Integration (Jan 15, 2026)
+GHA workflows with CloudBees actions failing with `404 Not Found : unable to retrieve run details`:
+- **Cause**: Inherited integration from parent org doesn't work for GHA OIDC
+- **Fix**: Reinstall GitHub App directly, recreate components
+- **Integration**: `j-hackers` / Endpoint ID: `953edc92-9c1a-48c9-9329-412cf8083a5c`
 
-### Root Cause
-The CloudBees GitHub App was installed via an **inherited integration** from a parent org. Components were created with an orphaned endpoint ID that didn't match any direct integration in j-hackers org.
-
-GHA OIDC authentication requires a **direct integration** for the GitHub account making the request - inherited integrations don't work for GHA OIDC.
-
-### The Fix
-1. **Uninstalled** CloudBees GitHub App from jalts-808 GitHub account
-2. **Reinstalled** fresh from https://github.com/apps/cloudbees-platform
-3. OAuth callback linked it directly to **j-hackers org** (not inherited)
-4. **Deleted and recreated ALL components** (they now use new endpoint ID)
-
-### New Integration Details
-- **Integration Name**: `j-hackers`
-- **Endpoint ID**: `953edc92-9c1a-48c9-9329-412cf8083a5c`
-- **Location**: j-hackers org → Configurations → Integrations
-
-### If This Happens Again
-If GHA CloudBees actions fail with "unable to retrieve run details":
-1. Check component endpoint ID matches an integration in Configurations → Integrations
-2. If mismatch, may need to reinstall GitHub App and recreate components
+### Workflow Dispatch UI Delay
+Runs triggered via `workflow_dispatch` don't appear in Runs list immediately (search index delay). Runs work and can be accessed via direct URL.
 
 ---
 
-### Known Issue (Jan 15, 2026)
-Runs triggered via `workflow_dispatch` don't appear in the Runs list UI immediately (search index delay). The runs work and can be accessed via direct URL. Reported to CloudBees.
+## Infrastructure
 
-## Project Owner
-James Altheide (jalts-808 on GitHub) - Product Manager at CloudBees
-
-## What This Project Is
-Learning project to understand CloudBees Unify by building and deploying a 3-component application.
-
-## End Goal
-Run a Feature Management example against hackers-web, with everything deployed to a personal k3s instance on AWS.
-
-## Current State (Last Updated: Jan 20, 2026)
-
-### Jenkins → Unify Integration ✅ WORKING
-
-**Jenkins URL**: http://jenkins.54.189.62.135.nip.io
-**Credentials**: admin / admin123
-
-j-hackers-api builds on Jenkins via Multibranch Pipeline. GHA workflow was deleted (Jan 20, 2026) so ONLY Jenkins builds this component.
-
-#### Webhook Auto-Trigger (Fixed Jan 20, 2026)
-Pushes to j-hackers-api now auto-trigger Jenkins builds:
-- **Webhook**: GitHub → `http://jenkins.54.189.62.135.nip.io/github-webhook/`
-- **Plugins installed**: `github`, `github-branch-source`
-- **Job config**: Changed from plain Git to **GitHub Branch Source** (required for auto-trigger)
-
-#### If Webhook Stops Working
-1. Check webhook exists: `gh api repos/jalts-808/j-hackers-api/hooks`
-2. Check deliveries: `gh api repos/jalts-808/j-hackers-api/hooks/<id>/deliveries`
-3. Verify plugins installed in Jenkins: `github`, `github-branch-source`
-4. Verify job uses `GitHubSCMSource` not `GitSCMSource` in config.xml
-
-**Unify URLs:**
-- Jenkins Management: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/jenkins-management/jenkins-controllers
-- Runs: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/runs
-
-### Build Systems - All Working
-| Service | CI/CD | Image | Status |
-|---------|-------|-------|--------|
-| j-hackers-api | Jenkins | `jamesalts/hackers-api` | Builds working |
-| j-hackers-auth | GitHub Actions | `jamesalts/hackers-auth` | Builds working |
-| j-hackers-web | CloudBees Unify | `jamesalts/hackers-web` | Builds working |
-
-All three services building and pushing Docker images to DockerHub.
-
-## Project Roadmap
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **1** | AWS Infrastructure - EC2 + k3s setup | ✅ Complete |
-| **2** | Jenkins on k3s | ✅ Complete |
-| **3** | CloudBees Unify builds | ✅ Complete |
-| **4** | Deploy all 3 services to k3s | ✅ Complete |
-| **5** | Feature Management setup | ✅ Complete |
-| **6** | Release orchestration | **IN PROGRESS** |
-
-### Phase 4: Deploy to k3s ✅ COMPLETE
-
-All 3 services deployed and running on k3s:
-- j-hackers-web: Auto-deploy on main branch push
-- j-hackers-api: Manual deploy via workflow_dispatch
-- j-hackers-auth: Manual deploy via workflow_dispatch
-
-**Environment**: `j-hackers-k3s` in Unify with kubeconfig (BASE64), DOCKERHUB_USER, namespace secrets.
-
-### How to Trigger Manual Deploy (for api/auth)
-1. Go to component → Workflows tab → click "deploy" → Run
-2. Fill in: `artifact-id: manual`, `artifactVersion: <version>`, `environment: j-hackers-k3s`
-
-### How to Update Kubeconfig in Unify
-The kubeconfig MUST be BASE64 encoded (the `cloudbees-days/setup-kubeconfig` action decodes it).
-```bash
-cat ~/.kube/config-3demo | base64 | pbcopy
-```
-Then paste into: Configurations → Environments → j-hackers-k3s → Edit → kubeconfig secret
-
----
-
-## Artifact Registration & Build→Deploy Flow (IMPORTANT)
-
-### Why Artifact Tracking Matters
-For **Release Orchestration** and **Feature Management** to work properly, CloudBees Unify needs to track:
-1. Which artifact (by UUID) was built
-2. Which environment it was deployed to
-3. When and by whom
-
-Without proper artifact tracking, you can't use:
-- Environment Inventory (see what's deployed where)
-- Release pipelines with artifact promotion
-- Deployment history and audit trails
-
-### How Artifact Registration Works
-
-The `cloudbees-io/register-deployed-artifact@v2` action requires a **valid UUID** for the `artifact-id` parameter - NOT a placeholder like "test-deploy" or "manual".
-
-**Where does the UUID come from?**
-The `cloudbees-io/kaniko@v1` action (used in build) registers the artifact and outputs its UUID.
-
-### The Problem We Solved
-
-**Kaniko outputs `artifact-ids` as JSON:**
-```json
-{"docker.io/jamesalts/hackers-web:1.0-0.0.31": "45d69219-332b-4a50-930f-cca5f8caa59d"}
-```
-
-The deploy workflow needs just the UUID: `45d69219-332b-4a50-930f-cca5f8caa59d`
-
-### The Solution: Auto-Deploy with Artifact ID Extraction
-
-We modified `j-hackers-web/build.yaml` to:
-
-1. **Add `id: kaniko` to the Kaniko step** (to access outputs)
-2. **Add an extraction step** that parses the UUID from the JSON:
-```yaml
-- name: Extract artifact ID
-  id: extract-artifact-id
-  uses: docker://alpine:latest
-  run: |
-    ARTIFACT_IDS='${{ steps.kaniko.outputs.artifact-ids }}'
-    # Extract UUID using regex pattern
-    ARTIFACT_ID=$(echo "$ARTIFACT_IDS" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-    echo -n "$ARTIFACT_ID" >> $CLOUDBEES_OUTPUTS/artifact-id
-```
-
-3. **Add job outputs:**
-```yaml
-build:
-  outputs:
-    artifact-id: ${{ steps.extract-artifact-id.outputs.artifact-id }}
-    artifact-version: 1.0-${{ cloudbees.version }}
-```
-
-4. **Add a deploy job that runs after build:**
-```yaml
-deploy:
-  needs: build
-  if: ${{ cloudbees.scm.branch == 'main' }}
-  uses: jalts-808/j-hackers-web/.cloudbees/workflows/deploy.yaml
-  with:
-    artifact-id: ${{ needs.build.outputs.artifact-id }}
-    artifactVersion: ${{ needs.build.outputs.artifact-version }}
-    environment: j-hackers-k3s
-  secrets: inherit
-  vars: inherit
-```
-
-### The Result
-
-Now when you push to main:
-```
-test → build → deploy (automatic)
-         ↓
-   Kaniko builds image
-   Registers artifact (gets UUID)
-   Extract step parses UUID
-   Deploy receives real UUID
-   Artifact registration succeeds!
-```
-
-**Unify now tracks:**
-- Artifact: `docker.io/jamesalts/hackers-web:1.0-0.0.31`
-- Environment: `j-hackers-k3s`
-- Deployed by: build workflow
-- Full audit trail
-
-### Why Auto-Deploy Makes Sense for Feature Management
-
-**Deploy ≠ Release** with feature flags:
-1. Push code with new feature behind a flag (flag OFF by default)
-2. Auto-deploy to k3s - code is deployed but feature is hidden
-3. Toggle flag in Unify UI - feature goes live instantly
-4. Problem? Toggle OFF immediately - instant rollback
-
-This enables rapid iteration without risky deployments.
-
-### Manual Deploy Option (for api/auth)
-
-The deploy.yaml workflows have a conditional that skips artifact registration for manual deploys:
-```yaml
-- name: Register deployed artifact
-  if: ${{ inputs.artifact-id != 'test-deploy' && inputs.artifact-id != 'manual' && inputs.artifact-id != '' }}
-  uses: cloudbees-io/register-deployed-artifact@v2
-```
-
-Use `artifact-id: manual` for manual deploys when you don't have the real UUID.
-
----
-
-### Phase 5: Feature Management ✅ COMPLETE
-
-**FM Application**: `j-hackers-app` in Unify → Feature Management
-**SDK Key**: `3370babe-d68c-45da-861f-a399621330e1` (j-hackers-k3s environment)
-**FM_TOKEN secret**: Added to j-hackers-k3s environment
-
-#### Flags (auto-registered from SDK)
-| Flag | Type | Default | Purpose |
-|------|------|---------|---------|
-| `default.show` | Boolean | false | Show "Show HN" stories tab |
-| `default.ask` | Boolean | false | Show "Ask HN" stories tab |
-| `default.score` | Boolean | false | Show story scores |
-| `default.headerColor` | String | "is-dark" | Header color theme |
-
-#### How Flags Work
-1. **Flag Definition**: `src/utils/flag.js` - defines flags with `Rox.Flag()` or `Rox.RoxString()`
-2. **Flag Usage**: Components import `Flags` and call `Flags.xxx.isEnabled()` or `Flags.xxx.getValue()`
-3. **Custom Properties**: Set for targeting with `Rox.setCustomBooleanProperty("isBetaUser", ...)`
-4. **Runtime Control**: Toggle flags in Unify UI → instant effect (no redeploy needed)
-
-#### Targeting & Rollouts
-- **Targeting**: Use custom properties (isBetaUser, isLoggedIn, company) in flag conditions
-- **Percentage Rollouts**: Select "Split" in THEN dropdown, set percentages per variant
-- **A/B Testing**: Different from targeting - random distribution regardless of properties
-
-## Repository Structure
-```
-3demo/
-├── j-hackers-web/   # Vue.js frontend (CloudBees Unify)
-├── j-hackers-api/   # Go backend API (Jenkins)
-├── j-hackers-auth/  # Go auth service (GitHub Actions)
-└── j-hackers-app/   # Release orchestration workflows
-```
-
-## Architecture
-```
-┌──────────────────────────────────────────────────────────────┐
-│  AWS EC2 + k3s                                               │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │  Traefik Ingress (built into k3s)                       │ │
-│  └────────┬──────────────────┬──────────────────┬──────────┘ │
-│           ▼                  ▼                  ▼            │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐       │
-│  │ hackers-web │    │ hackers-api │    │ hackers-auth│       │
-│  │   (Vue.js)  │───▶│    (Go)     │    │    (Go)     │       │
-│  └─────────────┘    └─────────────┘    └─────────────┘       │
-└──────────────────────────────────────────────────────────────┘
-```
-
-## AWS Infrastructure
-
-### EC2 Instance (Current - x86_64)
+### AWS EC2 (k3s Server)
+- **Public IP**: `54.201.69.176`
 - **Instance ID**: `i-001c9ceb643b1d99a`
-- **Name**: `3demo-k3s-x86`
-- **Public IP**: `54.189.62.135`
-- **Instance Type**: `t3.medium` (x86_64)
-- **Region**: `us-west-2`
+- **SSH**: `ssh -i ~/.ssh/3demo-key.pem ubuntu@54.201.69.176`
 
-### Old EC2 Instance (Stopped - ARM64, DO NOT USE)
-- **Instance ID**: `i-0cb966d64870f9575`
-- **Name**: `3demo-k3s`
-- **Instance Type**: `t4g.medium` (ARM64) - incompatible with x86_64 Docker images
-
-### SSH Access
+### Namespaces on k3s
 ```bash
-ssh -i ~/.ssh/3demo-key.pem ubuntu@54.189.62.135
+# Check all environments
+kubectl get pods -n 3demo          # Production (all 3 services)
+kubectl get pods -n 3demo-staging  # Staging (web only)
 ```
 
-### k3s
-- **Kubeconfig**: `~/.kube/config-3demo`
-- **Namespace**: `3demo`
-
-```bash
-KUBECONFIG=~/.kube/config-3demo kubectl get nodes
-```
-
-### Jenkins on k3s
-- **URL**: http://jenkins.54.189.62.135.nip.io (needs reinstall on new instance)
-- **Username**: `admin`
-- **Password**: (stored in k3s secret)
-
-### AWS Commands
-```bash
-# Check instance status
-aws ec2 describe-instances --instance-ids i-001c9ceb643b1d99a --query 'Reservations[0].Instances[0].[State.Name,PublicIpAddress]' --output text
-
-# Start/Stop instance
-aws ec2 start-instances --instance-ids i-001c9ceb643b1d99a
-aws ec2 stop-instances --instance-ids i-001c9ceb643b1d99a
-```
-
-## GitHub Repos
-- https://github.com/jalts-808/j-hackers-web
-- https://github.com/jalts-808/j-hackers-api
-- https://github.com/jalts-808/j-hackers-auth
-- https://github.com/jalts-808/j-hackers-app
-
-## CloudBees Unify
+### CloudBees Unify
 - **Organization**: j-hackers
 - **Org ID**: `eb3ae95d-a459-4f0a-ac58-57d752e4a373`
 - **Components URL**: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/components
@@ -362,150 +115,56 @@ aws ec2 stop-instances --instance-ids i-001c9ceb643b1d99a
 | j-hackers-auth | `9a1504a9-ccde-48df-bad0-0a21e27161a1` |
 | j-hackers-app | `f5cceab1-2bd2-4048-88a4-08ff753688a0` |
 
-## Phase 6 Notes: Release Orchestration (j-hackers-app)
+---
 
-The `j-hackers-app` repo is a **Release Orchestration Component** - no application code, only CloudBees Unify workflows that coordinate deployments across all three services.
+## Artifact Registration
 
-### Key Workflows
+For release orchestration to work, artifacts must be registered with UUIDs.
+
+### How It Works (j-hackers-web)
+1. Kaniko builds image and outputs `artifact-ids` as JSON
+2. Extract step parses UUID from JSON
+3. Deploy workflow receives UUID for `register-deployed-artifact`
+
+### For Manual Deploys
+Use `artifact-id: manual` to skip registration when you don't have the real UUID.
+
+---
+
+## j-hackers-app Workflows
+
 | Workflow | Purpose |
 |----------|---------|
 | `deployer.yaml` | Core dispatcher - calls each component's deploy.yaml based on manifest |
-| `release.yaml` | Simple BAU release: pre-prod → approval → prod |
-| `full-release.yaml` | Enterprise 4-stage pipeline (QA → Staging → Prod) |
-| `snow.yaml` | Same as full-release with ServiceNow integration |
+| `release.yaml` | BAU release: pre-prod → approval → prod |
+| `full-release.yaml` | Enterprise 4-stage pipeline |
 
-### How It Works
-Uses a **manifest JSON** to specify which components/versions to deploy:
-```json
-{
-  "hackers-web": { "deploy": true, "version": "1.0-0.0.69" },
-  "hackers-api": { "deploy": true, "version": "..." },
-  "hackers-auth": { "deploy": false }
-}
-```
+---
 
-### Full Release Pipeline Stages
-1. **Release Readiness** - Jira issue, quality checks, approval gate
-2. **QA** - Deploy, enable feature flags, run tests, exit criteria
-3. **Staging** - Release manager approval, E2E tests, risk assessment, ServiceNow CR
-4. **Production** - Deploy, smoke tests, progressive flag rollout (10% → 50% → 100%)
+## GitHub Repos
+- https://github.com/jalts-808/j-hackers-web
+- https://github.com/jalts-808/j-hackers-api
+- https://github.com/jalts-808/j-hackers-auth
+- https://github.com/jalts-808/j-hackers-app
 
-### To Customize for This Project
-The workflows reference CloudBees demo environment. To use:
-- Change `cloudbees-days/hackers-*` → `jalts-808/j-hackers-*`
-- Change `ldonleycb/*` Docker images → `jamesalts/*`
-- Update environment names to match k3s setup
+## Project Roadmap
 
-## Pipeline Comparison: Current vs Enterprise
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | AWS Infrastructure | ✅ Complete |
+| 2 | Jenkins on k3s | ✅ Complete |
+| 3 | CloudBees Unify builds | ✅ Complete |
+| 4 | Deploy all 3 services | ✅ Complete |
+| 5 | Feature Management | ✅ Complete |
+| 6 | Release Orchestration | **IN PROGRESS** |
 
-### Current Flow (This Project)
-```
-commit
-   ↓
-build → save artifact
-   │   ✓ j-hackers-api: Jenkins (Buildah)
-   │   ✓ j-hackers-auth: GitHub Actions (docker/build-push-action)
-   │   ✓ j-hackers-web: CloudBees Unify (Kaniko + Skopeo)
-   ↓
-security scan
-   │   ✓ j-hackers-api: Trivy + Grype (Jenkins)
-   │   ⚠ j-hackers-web: Unify implicit scans
-   │   ✗ j-hackers-auth: None
-   ↓
-push to DockerHub
-   │   ✓ All 3 services
-   ↓
-deploy to k3s                           ✓ Phase 4 COMPLETE
-   ↓
-feature flags                           ✓ Phase 5 COMPLETE
-   ↓
-release orchestration                   ⚠ Phase 6 IN PROGRESS
-```
+### Phase 6 Remaining
+- [ ] Set up j-hackers-app release workflow for multi-component deploys
+- [ ] Verify api/auth artifact registration
+- [ ] Test full release: all 3 services → staging → approval → prod
 
-### True Enterprise Flow (Target State)
-```
-commit
-   ↓
-build → save artifact
-   │   • Artifact stored in registry (Unify, Artifactory, etc.)
-   │   • SBOM generated (Software Bill of Materials)
-   │   • Artifact signed (Sigstore, Cosign)
-   ↓
-security scan (SAST, SCA, container scan)
-   │   • SAST: Static code analysis (SonarQube, Checkmarx)
-   │   • SCA: Dependency vulnerabilities (Snyk, Grype, Trivy)
-   │   • Container: Image vulnerabilities (Trivy, Grype)
-   │   • Secrets: Leaked credentials (GitLeaks, TruffleHog)
-   ↓
-quality gate (BLOCKS if failed)
-   │   • Tests pass? Coverage threshold met?
-   │   • No critical/high CVEs?
-   │   • Code quality score acceptable?
-   ↓
-push to DEV registry
-   │   • Separate registry per environment
-   │   • Or same registry with environment tags
-   ↓
-deploy to DEV → run smoke tests
-   │   • Automated deployment
-   │   • Basic health checks
-   ↓
-approval gate (QA sign-off)
-   │   • Manual approval required
-   │   • QA team verifies functionality
-   ↓
-deploy to STAGING → run E2E tests
-   │   • Full integration tests
-   │   • Performance tests
-   │   • Chaos engineering (optional)
-   ↓
-approval gate (Release Manager)
-   │   • Business sign-off
-   │   • Release notes reviewed
-   ↓
-change request (ServiceNow/Jira)
-   │   • Audit trail created
-   │   • Change window scheduled
-   ↓
-approval gate (CAB - Change Advisory Board)
-   │   • Final approval for production
-   │   • Risk assessment complete
-   ↓
-deploy to PROD (maintenance window)
-   │   • Blue/green or canary deployment
-   │   • Automated rollback ready
-   ↓
-smoke tests → progressive rollout
-   │   • 10% traffic → monitor → 50% → monitor → 100%
-   │   • Automatic rollback on error spike
-   ↓
-feature flags enabled gradually
-   │   • Features enabled per user segment
-   │   • A/B testing capabilities
-   │   • Kill switch available
-   ↓
-observability & feedback
-   │   • Metrics, logs, traces (Prometheus, Grafana, Jaeger)
-   │   • Error tracking (Sentry)
-   │   • User feedback loops
-```
+---
 
-### Gap Analysis: What's Missing
-| Capability | Current | Enterprise | Phase to Add |
-|------------|---------|------------|--------------|
-| Build artifacts | ✓ | ✓ | - |
-| Security scans | Partial | Full suite | Future |
-| Quality gates (blocking) | ✗ | ✓ | Future |
-| SBOM generation | ✗ | ✓ | Future |
-| Artifact signing | ✗ | ✓ | Future |
-| Multi-environment deploy | ✓ (k3s) | ✓ | ✅ Done |
-| Approval gates | ✗ | ✓ | **Phase 6** |
-| ServiceNow integration | ✗ | ✓ | Phase 6 |
-| Progressive rollout | ✓ (via FM) | ✓ | ✅ Done |
-| Feature flags | ✓ | ✓ | ✅ Done |
-| Observability | ✗ | ✓ | Future |
-
-## Important Notes
-- Do NOT do anything unless James explicitly asks
+## Notes
 - James is learning - explain concepts clearly
 - James prefers small, iterative commits
