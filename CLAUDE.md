@@ -49,6 +49,93 @@ The `deployer.yaml` takes a manifest JSON specifying what to deploy:
 
 ---
 
+## True Enterprise Flow (Target State)
+
+```
+commit
+   ↓
+build → save artifact
+   │   • Artifact stored in registry (Unify, Artifactory, etc.)
+   │   • SBOM generated (Software Bill of Materials)
+   │   • Artifact signed (Sigstore, Cosign)
+   ↓
+security scan (SAST, SCA, container scan)
+   │   • SAST: Static code analysis (SonarQube, Checkmarx)
+   │   • SCA: Dependency vulnerabilities (Snyk, Grype, Trivy)
+   │   • Container: Image vulnerabilities (Trivy, Grype)
+   │   • Secrets: Leaked credentials (GitLeaks, TruffleHog)
+   ↓
+quality gate (BLOCKS if failed)
+   │   • Tests pass? Coverage threshold met?
+   │   • No critical/high CVEs?
+   │   • Code quality score acceptable?
+   ↓
+push to DEV registry
+   │   • Separate registry per environment
+   │   • Or same registry with environment tags
+   ↓
+deploy to DEV → run smoke tests
+   │   • Automated deployment
+   │   • Basic health checks
+   ↓
+approval gate (QA sign-off)
+   │   • Manual approval required
+   │   • QA team verifies functionality
+   ↓
+deploy to STAGING → run E2E tests
+   │   • Full integration tests
+   │   • Performance tests
+   │   • Chaos engineering (optional)
+   ↓
+approval gate (Release Manager)
+   │   • Business sign-off
+   │   • Release notes reviewed
+   ↓
+change request (ServiceNow/Jira)
+   │   • Audit trail created
+   │   • Change window scheduled
+   ↓
+approval gate (CAB - Change Advisory Board)
+   │   • Final approval for production
+   │   • Risk assessment complete
+   ↓
+deploy to PROD (maintenance window)
+   │   • Blue/green or canary deployment
+   │   • Automated rollback ready
+   ↓
+smoke tests → progressive rollout
+   │   • 10% traffic → monitor → 50% → monitor → 100%
+   │   • Automatic rollback on error spike
+   ↓
+feature flags enabled gradually
+   │   • Features enabled per user segment
+   │   • A/B testing capabilities
+   │   • Kill switch available
+   ↓
+observability & feedback
+   │   • Metrics, logs, traces (Prometheus, Grafana, Jaeger)
+   │   • Error tracking (Sentry)
+   │   • User feedback loops
+```
+
+### Gap Analysis: What's Missing
+
+| Capability | Current | Enterprise | Phase to Add |
+|------------|---------|------------|--------------|
+| Build artifacts | ✓ | ✓ | - |
+| Security scans | Partial | Full suite | Future |
+| Quality gates (blocking) | ✗ | ✓ | Future |
+| SBOM generation | ✗ | ✓ | Future |
+| Artifact signing | ✗ | ✓ | Future |
+| Multi-environment deploy | ✓ (k3s) | ✓ | ✅ Done |
+| Approval gates | ✓ | ✓ | ✅ Done |
+| ServiceNow integration | ✗ | ✓ | Phase 6 |
+| Progressive rollout | ✓ (via FM) | ✓ | ✅ Done |
+| Feature flags | ✓ | ✓ | ✅ Done |
+| Observability | ✗ | ✓ | Future |
+
+---
+
 ## Current State (Jan 26, 2026)
 
 ### Environments
