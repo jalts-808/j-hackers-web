@@ -136,13 +136,26 @@ observability & feedback
 
 ---
 
-## Current State (Jan 26, 2026)
+## Current State (Jan 27, 2026)
 
 ### Environments
-| Environment | Namespace | URL | Purpose |
-|------------|-----------|-----|---------|
-| **Production** | `3demo` | http://hackers-web.54.201.69.176.nip.io | All 3 services |
-| **Staging** | `3demo-staging` | http://staging-hackers-web.54.201.69.176.nip.io | Web only (currently) |
+| Environment | Namespace | URL | Purpose | CloudBees Env Name |
+|------------|-----------|-----|---------|-------------------|
+| **Production** | `3demo` | http://hackers-web.54.201.69.176.nip.io | All 3 services | `hackers-prod` |
+| **Staging** | `3demo-staging` | http://staging-hackers-web.54.201.69.176.nip.io | All 3 services | `hackers-staging` |
+
+### CloudBees Environment Configuration
+Both environments require these variables/secrets:
+
+| Variable/Secret | Description | Example |
+|----------------|-------------|---------|
+| `namespace` | k8s namespace | `3demo` or `3demo-staging` |
+| `host_prefix` | URL prefix | `staging-` or empty |
+| `ORG_ID` | CloudBees org ID | `eb3ae95d-a459-4f0a-ac58-57d752e4a373` |
+| `FM_TOKEN` (secret) | Feature Management token | - |
+| `kubeconfig` (secret) | k3s cluster access | - |
+| `DOCKERHUB_USER` (secret) | Registry username | - |
+| `DOCKERHUB_TOKEN` (secret) | Registry password | - |
 
 ### j-hackers-web Current Flow (Simplified CI/CD)
 ```
@@ -154,11 +167,11 @@ Push to main → test → build → deploy-staging → APPROVAL → deploy (prod
 - Artifact UUID passed correctly for registration
 
 ### Build Systems
-| Component | CI | Artifact Registration | Notes |
-|-----------|----|-----------------------|-------|
-| j-hackers-web | CloudBees Unify | ✅ Working | Kaniko extracts UUID |
-| j-hackers-api | Jenkins | ⚠️ Check | May need UUID extraction |
-| j-hackers-auth | GitHub Actions | ⚠️ Check | May need UUID extraction |
+| Component | CI | Artifact Registration | Artifact UUID Example |
+|-----------|----|-----------------------|----------------------|
+| j-hackers-web | CloudBees Unify | ✅ Working | Kaniko extracts UUID automatically |
+| j-hackers-api | Jenkins | ✅ Working | `35818d5f-0cd7-485c-9d8d-b1d9751dd592` |
+| j-hackers-auth | GitHub Actions | ✅ Working | Extracted from build output |
 
 ---
 
@@ -252,8 +265,21 @@ Use `artifact-id: manual` to skip registration when you don't have the real UUID
 | Workflow | Purpose |
 |----------|---------|
 | `deployer.yaml` | Core dispatcher - calls each component's deploy.yaml based on manifest |
+| `simplified-release.yaml` | **Recommended** - Staging → Approval → Production (skips QA/ServiceNow) |
 | `release.yaml` | BAU release: pre-prod → approval → prod |
-| `full-release.yaml` | Enterprise 4-stage pipeline |
+| `full-release.yaml` | Enterprise 4-stage pipeline (includes QA and ServiceNow placeholders) |
+
+### Running a Simplified Release
+Trigger `simplified-release.yaml` with this manifest format:
+```json
+{
+  "hackers-api": {"jamesalts/hackers-api": {"deploy": true, "version": "3.0-19", "id": "35818d5f-0cd7-485c-9d8d-b1d9751dd592"}},
+  "hackers-auth": {"jamesalts/hackers-auth": {"deploy": true, "version": "2.0-19", "id": "manual"}},
+  "hackers-web": {"jamesalts/hackers-web": {"deploy": true, "version": "1.0-42", "id": "manual"}}
+}
+```
+
+Use `"id": "manual"` if you don't have the artifact UUID - this skips artifact registration tracking.
 
 ---
 
@@ -274,10 +300,32 @@ Use `artifact-id: manual` to skip registration when you don't have the real UUID
 | 5 | Feature Management | ✅ Complete |
 | 6 | Release Orchestration | **IN PROGRESS** |
 
-### Phase 6 Remaining
-- [ ] Set up j-hackers-app release workflow for multi-component deploys
-- [ ] Verify api/auth artifact registration
+### Phase 6 Checklist
+- [x] Set up j-hackers-app release workflow for multi-component deploys (`simplified-release.yaml`)
+- [x] Verify api artifact registration (Jenkins integration working, UUID: `35818d5f-0cd7-485c-9d8d-b1d9751dd592`)
+- [x] Verify auth artifact registration (working)
+- [x] Configure CloudBees environments (`hackers-staging`, `hackers-prod`)
 - [ ] Test full release: all 3 services → staging → approval → prod
+- [ ] Verify staging URLs accessible after deployment
+- [ ] Verify production URLs accessible after deployment
+
+---
+
+## Service URLs
+
+### Staging Environment
+| Service | URL |
+|---------|-----|
+| Web | http://staging-hackers-web.54.201.69.176.nip.io |
+| API | http://staging-hackers-api.54.201.69.176.nip.io |
+| Auth | http://staging-hackers-auth.54.201.69.176.nip.io |
+
+### Production Environment
+| Service | URL |
+|---------|-----|
+| Web | http://hackers-web.54.201.69.176.nip.io |
+| API | http://hackers-api.54.201.69.176.nip.io |
+| Auth | http://hackers-auth.54.201.69.176.nip.io |
 
 ---
 
