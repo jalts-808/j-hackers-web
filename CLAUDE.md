@@ -415,6 +415,84 @@ Use `"id": "manual"` if you don't have the artifact UUID - this skips artifact r
 
 ---
 
+## Manual Release Testing Guide
+
+Step-by-step guide to manually trigger and verify a release through CloudBees Unify.
+
+### Step 1: Gather Your Artifact Versions
+
+Before triggering, check Docker Hub for latest tags:
+- https://hub.docker.com/r/jamesalts/hackers-api/tags
+- https://hub.docker.com/r/jamesalts/hackers-auth/tags
+- https://hub.docker.com/r/jamesalts/hackers-web/tags
+
+Note the latest tag for each (e.g., `3.0-19`, `2.0-19-7b06479`, `1.0-0.0.57`)
+
+### Step 2: Trigger the Workflow in CloudBees Unify
+
+1. Go to https://cloudbees.io
+2. Navigate to org: **j-hackers**
+3. Click **Components** → **j-hackers-app**
+4. Click **Workflows** tab
+5. Find **Simplified Release** and click **Run** (play icon)
+6. Paste manifest JSON (update versions as needed):
+
+```json
+{"hackers-api":{"jamesalts/hackers-api":{"deploy":true,"version":"3.0-19","id":"manual"}},"hackers-auth":{"jamesalts/hackers-auth":{"deploy":true,"version":"2.0-19-7b06479","id":"manual"}},"hackers-web":{"jamesalts/hackers-web":{"deploy":true,"version":"1.0-0.0.57","id":"manual"}}}
+```
+
+7. Click **Run workflow**
+
+### Step 3: Watch & Verify Staging Deployment
+
+**Check URLs:**
+```bash
+curl -s http://staging-hackers-web.54.201.69.176.nip.io/ -w "\n%{http_code}\n"
+curl -s http://staging-hackers-api.54.201.69.176.nip.io/api/stories -w "\n%{http_code}\n"
+curl -s http://staging-hackers-auth.54.201.69.176.nip.io/ -w "\n%{http_code}\n"
+```
+
+**Check pods (SSH to EC2):**
+```bash
+ssh -i ~/.ssh/3demo-key.pem ubuntu@54.201.69.176
+sudo kubectl get pods -n 3demo-staging
+sudo kubectl get pods -n 3demo-staging -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].image}{"\n"}{end}'
+```
+
+### Step 4: Approve for Production
+
+1. In CloudBees Unify, workflow pauses at **staging-approval**
+2. Click on `staging-approval` job
+3. Click **Approve** to proceed
+
+### Step 5: Verify Production
+
+**Check URLs:**
+```bash
+curl -s http://hackers-web.54.201.69.176.nip.io/ -w "\n%{http_code}\n"
+curl -s http://hackers-api.54.201.69.176.nip.io/api/stories -w "\n%{http_code}\n"
+curl -s http://hackers-auth.54.201.69.176.nip.io/ -w "\n%{http_code}\n"
+```
+
+**Check pods:**
+```bash
+sudo kubectl get pods -n 3demo
+sudo kubectl get pods -n 3demo -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].image}{"\n"}{end}'
+```
+
+### Quick Reference Commands
+
+| What | Command |
+|------|---------|
+| Check staging pods | `sudo kubectl get pods -n 3demo-staging` |
+| Check prod pods | `sudo kubectl get pods -n 3demo` |
+| Check image versions | `sudo kubectl get pods -n <namespace> -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].image}{"\n"}{end}'` |
+| Watch pods live | `sudo kubectl get pods -n <namespace> -w` |
+| Check pod logs | `sudo kubectl logs -n <namespace> <pod-name>` |
+| Check ingress | `sudo kubectl get ingress -n <namespace>` |
+
+---
+
 ## Service URLs
 
 ### Staging Environment
