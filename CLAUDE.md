@@ -173,157 +173,34 @@ GHA workflows with CloudBees actions failing with `404 Not Found : unable to ret
 ### Workflow Dispatch UI Delay
 Runs triggered via `workflow_dispatch` don't appear in Runs list immediately (search index delay). Runs work and can be accessed via direct URL.
 
-### Jenkins CloudBees Integration Broken - CloudBees API 500 Errors (Jan 26-27, 2026)
-**Status: ROOT CAUSE FOUND - Jenkins internal URL not updated**
+### Jenkins CloudBees Integration (Jan 26-27, 2026) - ✅ RESOLVED
+**Status: FIXED on Jan 27, 2026**
 
 When the EC2 instance restarted and got a new IP (54.201.69.176 instead of 54.189.62.135), the Jenkins CloudBees integration broke.
 
-**Symptoms:**
-- Jenkins shows error banner: "The instance is experiencing errors sending data to CloudBees Platform"
-- Jenkins logs show `500` errors on `POST https://api.cloudbees.io/token-exchange/external-access-token-exchange/challenge`
-- CloudBees integration shows "disconnected" status
-- Builds complete but don't appear in CloudBees Unify Runs
-- CloudBees logs show: "unable to find endpoint metadata for JENKINS"
-
-**What We Tried:**
-1. ✅ Updated k3s ingress to use new IP
-2. ✅ Updated CloudBees integration URL to `http://jenkins.54.201.69.176.nip.io/`
-3. ✅ Deleted and recreated CloudBees integration (multiple times)
-4. ✅ Tried Automatic connection (recommended) - gets 500 errors from CloudBees API
-5. ✅ Tried Manual connection - PEM download fails with "unexpected error"
-6. ✅ Cleared stale Private key credential in Jenkins via Script Console
-7. ✅ Created fresh integration `j-hackers-jenkins-2` - still blocked by API errors
-
 **Root Cause (identified by Antonio Muniz Martin via Datadog logs):**
-Jenkins internal URL setting was NOT updated. While we updated:
-- k3s ingress ✅
-- CloudBees integration URL ✅
+Jenkins internal URL setting was NOT updated. Jenkins was sending the OLD URL in requests to CloudBees, causing "endpoint metadata not found" → 500 errors.
 
-We did NOT update Jenkins' own URL in **Manage Jenkins → System → Jenkins Location → Jenkins URL**.
-Jenkins was still sending the OLD URL (`http://jenkins.54.189.62.135.nip.io/`) in requests to CloudBees, which didn't match the endpoint created with the new URL → "endpoint metadata not found" → 500.
+**Resolution:**
+1. Verified Jenkins URL was already correct at `http://jenkins.54.201.69.176.nip.io/`
+2. Deleted old broken integration `j-hackers-jenkins-2`
+3. Created fresh integration `j-hackers-jenkins-v3` using Automatic connection
+4. Confirmed connection in Jenkins when prompted
+5. Verified build #16 on j-hackers-api appears in CloudBees Runs
 
-**Note on API behavior:** The 500 error should arguably be a 4xx with a helpful message (per Ben Walding). The API returning 500 instead of a proper error made debugging harder.
-
-### Fix Plan (Jan 27, 2026)
-
-**Step 1: Update Jenkins Internal URL**
-1. Navigate to: http://jenkins.54.201.69.176.nip.io/manage/configure
-2. Find "Jenkins Location" section
-3. Update "Jenkins URL" field:
-   - FROM: `http://jenkins.54.189.62.135.nip.io/`
-   - TO: `http://jenkins.54.201.69.176.nip.io/`
-4. Click Save
-
-**Step 2: Retry CloudBees Integration Connection**
-1. Navigate to CloudBees integrations: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/configurations/integrations
-2. Find `j-hackers-jenkins-2` integration
-3. Click to edit
-4. Click "Go to controller" to initiate handshake
-5. In Jenkins, approve the connection if prompted
-
-**Step 3: Verify**
-1. CloudBees integration status shows "connected" (not "disconnected" or "pending")
-2. Jenkins error banner disappears
-3. Trigger a test build on j-hackers-api
-4. Verify build appears in CloudBees Unify Runs within ~1 minute
-
-**Key URLs:**
-| Resource | URL |
-|----------|-----|
-| Jenkins System Config | http://jenkins.54.201.69.176.nip.io/manage/configure |
-| CloudBees Integrations | https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/configurations/integrations |
-| CloudBees Runs | https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/runs |
-
-**Current Configuration:**
-- Jenkins URL (should be): `http://jenkins.54.201.69.176.nip.io/`
-- CloudBees Integration: `j-hackers-jenkins-2`
-- Endpoint ID: `cb9e0f9e-393e-4bba-98b7-4284f8642e36`
-- CloudBees Endpoint: `https://api.cloudbees.io/`
+**Current Working Configuration:**
+- Jenkins URL: `http://jenkins.54.201.69.176.nip.io/`
+- CloudBees Integration: `j-hackers-jenkins-v3` (status: **connected**)
 - Org ID: `eb3ae95d-a459-4f0a-ac58-57d752e4a373`
 
-**Notes:**
-- The 500 error should arguably be a 4xx with a helpful message (per Ben Walding)
-- This is a common scenario when servers restart with new IPs - useful feedback for CloudBees engineering
+**Lesson Learned:**
+When EC2 IP changes, update ALL of these:
+1. k3s ingress
+2. CloudBees integration URL
+3. Jenkins internal URL (Manage Jenkins → System → Jenkins Location)
+4. If integration is corrupted, delete and recreate fresh
 
----
-
-## Bug Report for CloudBees Support
-
-**Copy the section below to submit to CloudBees Support:**
-
----
-
-### Bug Report: Jenkins Controller Integration - HTTP 500 Errors on Connection Endpoints
-
-**Summary:**
-Unable to connect Jenkins controller to CloudBees Platform. Both Automatic and Manual connection methods fail with HTTP 500 errors from CloudBees API endpoints.
-
-**Environment:**
-- CloudBees Organization: `j-hackers`
-- Organization ID: `eb3ae95d-a459-4f0a-ac58-57d752e4a373`
-- Integration Name: `j-hackers-jenkins-2`
-- Jenkins URL: `http://jenkins.54.201.69.176.nip.io/`
-- Jenkins Version: 2.528.3
-- CloudBees Platform Integration Plugin: Installed and configured
-- CloudBees API Endpoint: `https://api.cloudbees.io/`
-
-**Date/Time of Issue:**
-January 26, 2026, starting approximately 14:00 UTC
-
-**Steps to Reproduce:**
-
-1. Navigate to Configurations → Integrations in CloudBees Platform
-2. Create new Jenkins Controller integration with:
-   - Name: `j-hackers-jenkins-2`
-   - Controller URL: `http://jenkins.54.201.69.176.nip.io`
-3. Select "Automatic connection" (recommended) and submit
-4. Click "Go to controller" button to initiate handshake
-5. **Result:** CloudBees UI displays "An unexpected error occurred"
-
-Alternative attempt with Manual connection:
-1. Edit integration, select "Manual connection"
-2. Click "Download the PEM file" button
-3. **Result:** CloudBees UI displays "An unexpected error occurred"
-
-**Error Details:**
-
-Browser console shows:
-```
-Failed to load resource: the server responded with a status of 500
-POST https://api.cloudbees.io/.../endpoints/192a579a-29ca-405e-ae7c-c1cc9e073420
-```
-
-Jenkins logs show:
-```
-500 Internal Server Error on POST https://api.cloudbees.io/token-exchange/external-access-token-exchange/challenge
-```
-
-**Expected Behavior:**
-- Automatic connection: Handshake completes, integration status changes to "connected"
-- Manual connection: PEM file downloads successfully for manual configuration
-
-**Actual Behavior:**
-- Both connection methods fail with HTTP 500 errors
-- Integration remains in "disconnected" status
-- Jenkins shows error banner: "The instance is experiencing errors sending data to CloudBees Platform"
-
-**Troubleshooting Already Performed:**
-1. Verified Jenkins URL is correct and accessible
-2. Deleted and recreated integration multiple times
-3. Cleared stale credentials from Jenkins configuration via Script Console
-4. Tried both Automatic and Manual connection types
-5. Verified CloudBees Platform Integration Plugin is installed on Jenkins
-
-**Impact:**
-- Jenkins builds complete but are not reported to CloudBees Platform
-- Unable to use CloudBees Unify for Jenkins CI visibility
-- Blocking release orchestration workflow implementation
-
-**Additional Context:**
-This issue started after our EC2 instance was restarted and received a new IP address. The Jenkins URL was updated accordingly, but the CloudBees API endpoints are returning 500 errors regardless of the connection method used.
-
-**Request:**
-Please investigate the HTTP 500 errors on the Jenkins integration endpoints. Is there a known outage or issue with the token-exchange and PEM generation APIs?
+**Note:** The CloudBees API returning 500 instead of a helpful 4xx error made debugging harder (feedback sent to CloudBees engineering).
 
 ---
 
