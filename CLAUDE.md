@@ -204,23 +204,46 @@ Jenkins was still sending the OLD URL (`http://jenkins.54.189.62.135.nip.io/`) i
 
 **Note on API behavior:** The 500 error should arguably be a 4xx with a helpful message (per Ben Walding). The API returning 500 instead of a proper error made debugging harder.
 
-**Fix:**
-1. Go to Jenkins → Manage Jenkins → System (Configure System)
+### Fix Plan (Jan 27, 2026)
+
+**Step 1: Update Jenkins Internal URL**
+1. Navigate to: http://jenkins.54.201.69.176.nip.io/manage/configure
 2. Find "Jenkins Location" section
-3. Update "Jenkins URL" from `http://jenkins.54.189.62.135.nip.io/` to `http://jenkins.54.201.69.176.nip.io/`
-4. Save
-5. Retry CloudBees integration connection
+3. Update "Jenkins URL" field:
+   - FROM: `http://jenkins.54.189.62.135.nip.io/`
+   - TO: `http://jenkins.54.201.69.176.nip.io/`
+4. Click Save
+
+**Step 2: Retry CloudBees Integration Connection**
+1. Navigate to CloudBees integrations: https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/configurations/integrations
+2. Find `j-hackers-jenkins-2` integration
+3. Click to edit
+4. Click "Go to controller" to initiate handshake
+5. In Jenkins, approve the connection if prompted
+
+**Step 3: Verify**
+1. CloudBees integration status shows "connected" (not "disconnected" or "pending")
+2. Jenkins error banner disappears
+3. Trigger a test build on j-hackers-api
+4. Verify build appears in CloudBees Unify Runs within ~1 minute
+
+**Key URLs:**
+| Resource | URL |
+|----------|-----|
+| Jenkins System Config | http://jenkins.54.201.69.176.nip.io/manage/configure |
+| CloudBees Integrations | https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/configurations/integrations |
+| CloudBees Runs | https://cloudbees.io/cloudbees/eb3ae95d-a459-4f0a-ac58-57d752e4a373/runs |
 
 **Current Configuration:**
 - Jenkins URL (should be): `http://jenkins.54.201.69.176.nip.io/`
 - CloudBees Integration: `j-hackers-jenkins-2`
 - Endpoint ID: `cb9e0f9e-393e-4bba-98b7-4284f8642e36`
 - CloudBees Endpoint: `https://api.cloudbees.io/`
+- Org ID: `eb3ae95d-a459-4f0a-ac58-57d752e4a373`
 
-**Verification (once fixed):**
-- Check Jenkins logs for successful API calls (no 401/500)
-- CloudBees integration status changes to "connected"
-- Trigger a build and verify it appears in CloudBees Unify within ~1 minute
+**Notes:**
+- The 500 error should arguably be a 4xx with a helpful message (per Ben Walding)
+- This is a common scenario when servers restart with new IPs - useful feedback for CloudBees engineering
 
 ---
 
