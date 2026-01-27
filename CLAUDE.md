@@ -279,6 +279,87 @@ Push to main → test → build → deploy-staging → APPROVAL → deploy (prod
 
 ---
 
+## CloudBees Workflow DSL - Key Learnings
+
+CloudBees Platform DSL follows **GitHub Actions syntax**. Key documentation:
+- [CloudBees DSL Syntax](https://docs.cloudbees.com/docs/cloudbees-platform/latest/dsl-syntax/)
+- [Manage Workflows](https://docs.cloudbees.com/docs/cloudbees-platform/latest/workflows/manage-workflows)
+- [Reusable Workflows](https://docs.cloudbees.com/docs/cloudbees-platform/latest/workflows/reusable-workflows)
+
+### JSON Inputs: Use `fromJSON()` in Expressions Only
+
+**Problem**: Passing JSON inputs to shell scripts causes escaping issues.
+
+```yaml
+# BAD - Will break with "jq parse error: control characters"
+- name: Parse manifest
+  env:
+    MANIFEST: ${{ inputs.manifest }}
+  run: |
+    echo "$MANIFEST" | jq .   # FAILS - escaping issues
+```
+
+**Solution**: Use `fromJSON()` in workflow expressions, never in shell.
+
+```yaml
+# GOOD - Use fromJSON() in workflow expressions
+jobs:
+  deploy-api:
+    if: ${{ fromJSON(inputs.manifest)['hackers-api']['jamesalts/hackers-api'].deploy }}
+    uses: ./deploy.yaml
+    with:
+      version: ${{ fromJSON(inputs.manifest)['hackers-api']['jamesalts/hackers-api'].version }}
+```
+
+### Why This Works
+
+| Approach | Works? | Reason |
+|----------|--------|--------|
+| `${{ inputs.manifest }}` in shell | ❌ | Control characters break shell escaping |
+| `${{ inputs.manifest }}` in markdown/evidence | ✅ | No shell parsing involved |
+| `fromJSON(inputs.manifest)` in expressions | ✅ | CloudBees handles JSON parsing natively |
+| `fromJSON(inputs.manifest).property` in `with:` | ✅ | Extracts values before shell sees them |
+
+### Practical Example: deployer.yaml
+
+Our `deployer.yaml` works because it **only** uses the manifest in expressions:
+
+```yaml
+jobs:
+  hackers-api:
+    # Expression - works fine
+    if: ${{ fromJSON(inputs.manifest)['hackers-api']['jamesalts/hackers-api'].deploy }}
+    uses: jalts-808/j-hackers-api/.cloudbees/workflows/deploy.yaml
+    with:
+      # Expression - works fine
+      artifactVersion: ${{ fromJSON(inputs.manifest)['hackers-api']['jamesalts/hackers-api'].version }}
+      artifact-id: ${{ fromJSON(inputs.manifest)['hackers-api']['jamesalts/hackers-api'].id }}
+```
+
+### Input Types Supported
+
+| Type | Example | Use Case |
+|------|---------|----------|
+| `string` | `default: "value"` | Text input |
+| `number` | `default: 3` | Numeric values |
+| `boolean` | `default: true` | Toggle features |
+| `choice` | `options: [a, b, c]` | Dropdown selection |
+
+### Secrets Must Exist
+
+CloudBees evaluates `${{ secrets.NAME }}` at **parse time**, not runtime. If a secret doesn't exist, the workflow fails immediately - `continue-on-error` won't help.
+
+```yaml
+# This FAILS at parse time if UNIFY_TOKEN doesn't exist
+- name: Update flag
+  with:
+    token: ${{ secrets.UNIFY_TOKEN }}  # Error: secrets.UNIFY_TOKEN is undefined
+```
+
+**Fix**: Either add the secret to the environment, or remove/comment out the step.
+
+---
+
 ## Known Bugs
 
 ### GitHub App Integration (Jan 15, 2026)
