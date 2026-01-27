@@ -136,6 +136,110 @@ observability & feedback
 
 ---
 
+## Enterprise Pipeline Patterns: Team Autonomy vs Coordinated Releases
+
+When you have multiple teams (each owning their own service with their own CI system), there are two fundamental approaches to deploying to staging/production.
+
+### Pattern A: Continuous Deployment (Team Autonomy)
+```
+Team A pushes → CI builds → Automatically deploys to Staging
+Team B pushes → CI builds → Automatically deploys to Staging
+Team C pushes → CI builds → Automatically deploys to Staging
+```
+Each team owns their service end-to-end. They can deploy to staging whenever they want.
+
+**Pros:** Fast feedback, team autonomy, less coordination overhead
+**Cons:** Potential "integration hell" - Team A deploys, breaks Team B's integration
+
+### Pattern B: Coordinated Releases (Release Train)
+```
+Team A pushes → CI builds → Artifact sits in registry (holding zone)
+Team B pushes → CI builds → Artifact sits in registry (holding zone)
+Team C pushes → CI builds → Artifact sits in registry (holding zone)
+                              ↓
+              Release Orchestration picks up all 3
+                              ↓
+                    Deploys ALL to Staging together
+```
+A release manager or automated process deploys services together.
+
+**Pros:** All services deploy together (same versions), clear release cadence, better for compliance
+**Cons:** Slower iteration, teams wait for each other
+
+### What We Have (Hybrid)
+
+Our setup supports **both patterns**:
+
+| Pattern | How to Use | When to Use |
+|---------|-----------|-------------|
+| **Team Autonomy** | Each service's `build.yaml` auto-deploys to staging | Day-to-day development, fast iteration |
+| **Coordinated Release** | `simplified-release.yaml` deploys all 3 together | Production releases, coordinated changes |
+
+### The "Holding Zone" Concept
+
+The artifact registry (Docker Hub) **is** the holding zone:
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CI PIPELINES (Build + Register Artifact)                   │
+│                                                             │
+│  Team A → Jenkins → Builds hackers-api:3.0-19              │
+│  Team B → GHA → Builds hackers-auth:2.0-19                 │
+│  Team C → CloudBees → Builds hackers-web:1.0-42            │
+│                                                             │
+│  Artifacts exist in Docker Hub / Artifact Registry         │
+│  They're "built" but not "deployed" anywhere yet           │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+                    This IS the holding zone
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  RELEASE ORCHESTRATION (simplified-release.yaml)            │
+│                                                             │
+│  DevOps/Release Manager triggers with manifest:             │
+│  "Deploy api:3.0-19, auth:2.0-19, web:1.0-42 to staging"   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Typical Enterprise Environment Ownership
+
+| Environment | Who Controls Deploy? | Why? |
+|-------------|---------------------|------|
+| **Dev/Feature** | Individual teams, automatic | Fast feedback, experimentation |
+| **Staging** | Often automatic, sometimes gated | Integration validation |
+| **Production** | Release team, manual approval | Risk management, compliance |
+
+### Mitigating "Integration Hell"
+
+When teams deploy independently, one team's change can break another's integration:
+```
+Monday 9am:  Team A deploys v2.0 of API to staging (works fine)
+Monday 10am: Team B deploys v1.5 of Auth to staging (breaks API v2.0!)
+Monday 11am: Team A: "WTF, staging is broken, I didn't change anything!"
+```
+
+**Enterprise mitigations:**
+1. **Contract Testing** - Services define API contracts, CI fails if you break them (Pact)
+2. **Feature Flags** - New functionality is "dark" until all services are ready
+3. **API Versioning** - v1 endpoints stay working while v2 rolls out
+4. **Coordinated Release Windows** - "Staging deploys happen at 2pm daily"
+5. **Automated Integration Tests** - Run after every staging deploy, alert if broken
+
+### Recommended Approach for This Project
+
+**For day-to-day development:** Let teams deploy to staging independently via their own CI.
+```
+Push to main → Build → Auto-deploy to staging
+```
+Fast feedback. If something breaks, the team that broke it fixes it.
+
+**For production releases:** Use coordinated releases via `simplified-release.yaml`.
+```
+Pick all 3 artifact versions → Deploy to staging together → Approve → Production
+```
+This ensures you know exactly what versions are in production together.
+
+---
+
 ## Current State (Jan 27, 2026)
 
 ### Environments
