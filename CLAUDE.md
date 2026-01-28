@@ -240,13 +240,20 @@ This ensures you know exactly what versions are in production together.
 
 ---
 
-## Current State (Jan 27, 2026)
+## Current State (Jan 28, 2026)
+
+### Deployed Versions (Both Environments In Sync)
+| Service | Version | Staging | Production |
+|---------|---------|---------|------------|
+| API | `j-hackers-api:3.0-19` | ✅ | ✅ |
+| Auth | `hackers-auth:2.0-19-7b06479` | ✅ | ✅ |
+| Web | `hackers-web:1.0-0.0.58` | ✅ | ✅ |
 
 ### Environments
 | Environment | Namespace | URL | Purpose | CloudBees Env Name |
 |------------|-----------|-----|---------|-------------------|
-| **Production** | `3demo` | http://hackers-web.54.201.69.176.nip.io | All 3 services | `hackers-prod` |
-| **Staging** | `3demo-staging` | http://staging-hackers-web.54.201.69.176.nip.io | All 3 services | `hackers-staging` |
+| **Production** | `3demo` | http://hackers-web.54.201.69.176.nip.io | All 3 services | `j-hackers-k3s` |
+| **Staging** | `3demo-staging` | http://staging-hackers-web.54.201.69.176.nip.io | All 3 services | `j-hackers-staging` |
 
 ### CloudBees Environment Configuration
 Both environments require these variables/secrets:
@@ -483,16 +490,35 @@ Use `"id": "manual"` if you don't have the artifact UUID - this skips artifact r
 | 3 | CloudBees Unify builds | ✅ Complete |
 | 4 | Deploy all 3 services | ✅ Complete |
 | 5 | Feature Management | ✅ Complete |
-| 6 | Release Orchestration | **IN PROGRESS** |
+| 6 | Release Orchestration | ✅ Complete |
 
 ### Phase 6 Checklist
 - [x] Set up j-hackers-app release workflow for multi-component deploys (`simplified-release.yaml`)
 - [x] Verify api artifact registration (Jenkins integration working, UUID: `35818d5f-0cd7-485c-9d8d-b1d9751dd592`)
 - [x] Verify auth artifact registration (working)
-- [x] Configure CloudBees environments (`hackers-staging`, `hackers-prod`)
-- [ ] Test full release: all 3 services → staging → approval → prod
-- [ ] Verify staging URLs accessible after deployment
-- [ ] Verify production URLs accessible after deployment
+- [x] Configure CloudBees environments (`j-hackers-staging`, `j-hackers-k3s`)
+- [x] Test full release: all 3 services → staging → approval → prod
+- [x] Verify staging URLs accessible after deployment
+- [x] Verify production URLs accessible after deployment
+
+### Phase 6 Key Learnings
+
+**Manifest must be SINGLE-LINE JSON:**
+```
+{"hackers-api":{"jamesalts/hackers-api":{"deploy":true,"version":"3.0-19","id":"manual"}},"hackers-auth":{"jamesalts/hackers-auth":{"deploy":true,"version":"2.0-19-7b06479","id":"manual"}},"hackers-web":{"jamesalts/hackers-web":{"deploy":true,"version":"1.0-0.0.58","id":"manual"}}}
+```
+
+If you paste multi-line JSON with newlines, `fromJSON()` fails with:
+```
+invalid character '\n' in string literal
+```
+
+**Issues Fixed During Implementation:**
+1. `cloudbees.triggering_user` undefined → removed from workflow
+2. Environment names wrong → use `j-hackers-staging` and `j-hackers-k3s`
+3. `vars.ORG_ID` undefined → hardcoded org ID in workflow
+4. `secrets.UNIFY_TOKEN` undefined → removed feature flag job (add secret later to re-enable)
+5. JSON parsing in shell breaks → don't use jq in shell, use `fromJSON()` in expressions only
 
 ---
 
